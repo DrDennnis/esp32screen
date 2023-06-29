@@ -9,14 +9,18 @@ class option {
     String itemName;
     int itemMemoryAddress;
     void (*itemEmuDataTCallBack)();
+    void (*itemValidateCallBack)();
+    bool itemMainScreen = true;
 
   public:
-    option(String name, int memoryAddress, void (*emuDataTCallBack)(void));
+    option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void),  bool mainScreen = true);
     String getName();
     void getEmuDataT();
     bool isActive();
     void setActive();
     void setInActive();
+    void validate();
+    bool isMainScreen();
 };
 
 #endif

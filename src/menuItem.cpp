@@ -3,10 +3,12 @@
 #include "menuItem.h"
 #include <EEPROM.h>
 
-option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void)) {
+option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), bool mainScreen) {
   itemName = name;
   itemMemoryAddress = memoryAddress;
   itemEmuDataTCallBack = emuDataTCallBack;
+  itemValidateCallBack = validateCallBack;
+  itemMainScreen = mainScreen;
 }
 
 
@@ -27,6 +29,11 @@ void option::setInActive()
   EEPROM.commit();
 }
 
+bool option::isMainScreen()
+{
+  return itemMainScreen;
+}
+
 String option::getName()
 {
   return itemName;
@@ -35,4 +42,9 @@ String option::getName()
 void option::getEmuDataT()
 {
   itemEmuDataTCallBack();
+}
+
+void option::validate()
+{
+  itemValidateCallBack();
 }
