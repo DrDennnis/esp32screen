@@ -1,6 +1,6 @@
-// menuItem.cpp
+// option.cpp
 
-#include "menuItem.h"
+#include "option.h"
 #include <EEPROM.h>
 
 option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), bool mainScreen) {
@@ -9,12 +9,32 @@ option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), v
   itemEmuDataTCallBack = emuDataTCallBack;
   itemValidateCallBack = validateCallBack;
   itemMainScreen = mainScreen;
+  option::readMemoryData();
+  
 }
 
+void option::addSubOption(subOption* subOption){
+  itemSubOptions[sizeof(itemSubOptions) +1 ] = subOption;
+}
+
+subOption option::getSubOption(int i) {
+  return itemSubOptions[i];
+}
+
+void option::readMemoryData()
+{
+  active = EEPROM.readBool(itemMemoryAddress);
+  position = EEPROM.readInt(itemMemoryAddress+1);
+}
 
 bool option::isActive()
 {
-  return EEPROM.readBool(itemMemoryAddress);
+  return active;
+}
+
+int option::getPosition()
+{
+  return position;
 }
 
 void option::setActive()

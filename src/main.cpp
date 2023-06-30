@@ -6,7 +6,8 @@
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_ST7789.h>
 #include <SPI.h>
-#include "menuItem.h"
+#include "option.h"
+#include "subOption.h"
 
 // SCREEN
 #define TFT_MOSI 23  // SDA Pin on ESP32
@@ -31,8 +32,12 @@ const long screenRefreshRate = 250; // screen refresh rate
 const long debounce = 50; 
 
 int lastEncoderPos = 0;
+int optionSelected = 0;
+static unsigned long lastTimePressed = 0; // Soft debouncing
 int buttonState = LOW;
-int menuState = false;
+int menuState = LOW;
+int subMenuState = LOW;
+int blockColor = ST77XX_WHITE;
 
 
 // Initialize Adafruit ST7789 TFT library
@@ -81,6 +86,7 @@ void emuCoolantTemp()
 void noValidation()
 {
   tft.setTextColor(ST77XX_GREEN);
+  blockColor = ST77XX_WHITE;
 }
 
 void validationBatt()
@@ -88,26 +94,83 @@ void validationBatt()
   if (emu.emu_data.Batt < 11.0)
   {
     tft.setTextColor(ST77XX_RED);
+    blockColor = ST77XX_RED;
+  }
+}
+
+void validationOilTemp()
+{
+  if (emu.emu_data.oilTemperature < 80)
+  {
+    tft.setTextColor(ST77XX_ORANGE);
+    blockColor = ST77XX_ORANGE;
   }
   
+  if (emu.emu_data.oilTemperature > 120)
+  {
+    tft.setTextColor(ST77XX_RED);
+    blockColor = ST77XX_RED;
+  }
+}
+
+void validationOilPresure()
+{
+  if (emu.emu_data.oilPressure < 2.0)
+  {
+    tft.setTextColor(ST77XX_RED);
+    blockColor = ST77XX_RED;
+  }
 }
 
 void emptyCallBack(){}
 void back()
 {
   menuState = LOW;
+  subMenuState = LOW;
 }
+
+subOption subOpt1 = subOption("Position",1);
+subOption subOpt2 = subOption("Active",2);
+subOption subOptions[] = {
+  {"Position",1},
+  {"Active",2},
+};
+
+// option opt1 = option("Rpm", 1, emuRpm, noValidation);
+// option opt2 = option("Batt", 5, emuBatt, validationBatt);
+// option opt3 = option("Iat", 10, emuIat, noValidation);
+// option opt4 = option("Oil Temp", 15, emuOilTemp, validationOilTemp);
+// option opt5 = option("Oil Press", 20, emuOilPresure, validationOilPresure);
+// option opt6 = option("CL Temp", 25, emuCoolantTemp, noValidation);
+// option opt7 = option("BACK", 250, back, emptyCallBack, false);
+
+// // opt1.addSubOption(subOpt1);
+
+// option options[] = {
+//   opt1,
+//   opt2,
+//   opt3,
+//   opt4,
+//   opt5,
+//   opt6,
+//   opt7,
+// };
 
 option options[] = {
   {"Rpm", 1, emuRpm, noValidation},
-  {"Batt", 2, emuBatt, validationBatt},
-  {"Iat", 3, emuIat, noValidation},
-  {"Oil", 4, emuOilTemp, noValidation},
-  {"Oil", 5, emuOilPresure, noValidation},
-  {"CLT", 6, emuCoolantTemp, noValidation},
-  {"BACK", 255, back, emptyCallBack, false},
+  {"Batt", 5, emuBatt, validationBatt},
+  {"IAT", 10, emuIat, noValidation},
+  {"Oil Temp", 15, emuOilTemp, validationOilTemp,},
+  {"Oil Press", 20, emuOilPresure, validationOilPresure},
+  {"CLT", 25, emuCoolantTemp, noValidation},
+  {"BACK", 250, back, emptyCallBack, false}, // should not be here and should be handle diffrently but i dont know how 
 };
 
+
+bool comp(const option& lhs, const option& rhs)
+{
+  return lhs.position < rhs.position;
+}
  
 void renderMainScreen() {
   tft.setTextWrap(false);
@@ -115,26 +178,53 @@ void renderMainScreen() {
   tft.setCursor(0, 10);
   
   tft.setTextSize(3);
+  
+  int blockHeight = 50;
+  int x = 2;
+  int y = 0;
+  int itemCount = 0;
+
+  std::sort(std::begin(options), std::end(options), comp);
   for (int i=0; i < (sizeof options / sizeof(options[0])); i++) {
     option item = options[i];
+    item.readMemoryData();
+
     if (item.isActive() && item.isMainScreen())
     {
+      itemCount++;
+      if (itemCount > 1)
+      {
+        if ( itemCount % 2 == 0)
+        {
+          x = (SCREEN_WIDTH / 2) +2;
+        } else {
+          x = 2;
+          y += blockHeight;
+        }
+      }
       item.validate();
+      tft.drawRect(x, y, (SCREEN_WIDTH / 2) - 6, (blockHeight - 2), blockColor);
+      tft.setCursor(6 + x, 2 + y);
+
+      tft.setTextSize(2);
+      tft.setTextColor(blockColor);
       tft.print(item.getName());
-      tft.print(":");
+      tft.setCursor(6 + x, 20 + y);
+      tft.setTextSize(3);
       item.getEmuDataT();
       tft.println();
     }
   }
 }
-
 void renderMenu()
 {
   tft.setTextSize(3);
   tft.setCursor(0, 10);
   tft.fillScreen(ST77XX_BLACK);
+  std::sort(std::begin(options), std::end(options), comp);
     for (int i=0; i < (sizeof options / sizeof(options[0])); i++) {
     option item = options[i];
+    item.readMemoryData();
 
     int16_t color = 0x52AA;
     if (i == lastEncoderPos)
@@ -162,6 +252,43 @@ void renderMenu()
   }
 }
 
+void renderSubMenu()
+{
+  tft.setTextSize(3);
+  tft.setCursor(0, 10);
+  tft.fillScreen(ST77XX_BLACK);
+  
+    option item = options[optionSelected];
+  for (int i=0; i < (sizeof item.itemSubOptions / sizeof(item.itemSubOptions[0])); i++) {
+    subOption subOption = item.getSubOption(i);
+    // item.readMemoryData();
+
+    int16_t color = 0x52AA;
+    if (i == lastEncoderPos)
+    {
+      color = 0x94F2;
+    }
+
+    // if (item.isActive())
+    // {
+    //   tft.setTextColor(ST77XX_GREEN);
+    // } else {
+    //   tft.setTextColor(ST77XX_RED);
+    // }
+    
+    // if (!item.isMainScreen())
+    // {
+    //   tft.setTextColor(ST77XX_BLACK);
+    // }
+    int blockHeight = 28;
+    tft.fillRect(2, (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
+    tft.setCursor(6, 2+(i*blockHeight));
+
+    tft.print(subOption->getName());
+    tft.println();
+  }
+}
+
 void renderDebugInfo()
 {
   tft.setCursor(0, 300);
@@ -177,10 +304,14 @@ void renderDebugInfo()
 
 void rotary_onButtonClick()
 {
-    static unsigned long lastTimePressed = 0; // Soft debouncing
+    Serial.print("OpenMenu : ");
+    Serial.print(menuState);
+    Serial.print(" : ");
+    Serial.print(subMenuState);
+    Serial.print(" : ");
+    Serial.println(lastTimePressed);
     if (millis() - lastTimePressed < 500)
     {
-      // write dubble click logic here ?
             return;
     }
     if(menuState == LOW)
@@ -199,25 +330,53 @@ void rotary_onButtonClick()
           item.setActive();
         }
       }
+      item.readMemoryData();
     }
-  
-    
 }
 
 void rotary_loop()
 {
-    //dont print anything unless value changed
-    if (rotaryEncoder.encoderChanged())
+  
+  unsigned long currentMillis = millis();
+  //dont print anything unless value changed
+  if (rotaryEncoder.encoderChanged())
+  {
+    lastEncoderPos = rotaryEncoder.readEncoder();
+  }
+  if (rotaryEncoder.isEncoderButtonClicked()) {
+    buttonState = HIGH;
+    if (menuState == HIGH && millis() - lastTimePressed < 500 && millis() - lastTimePressed > 50)
     {
-      lastEncoderPos = rotaryEncoder.readEncoder();
-    }
-    if (rotaryEncoder.isEncoderButtonClicked())
-    {
-      buttonState = HIGH;
-      rotary_onButtonClick();
+      Serial.print("OpenSubMenu : with Menu state :");
+      Serial.print(menuState);
+      Serial.print(" : ");
+      Serial.print(subMenuState);
+      Serial.print(" : ");
+      Serial.println(lastTimePressed);
+      option item = options[lastEncoderPos];
+      if(menuState == HIGH && sizeof(item.itemSubOptions) > 1)
+      {
+        subMenuState = HIGH;
+        optionSelected = lastEncoderPos;
+        rotaryEncoder.setEncoderValue(0);
+        lastEncoderPos = rotaryEncoder.readEncoder();
+      }
     } else {
-      buttonState = LOW;
+      rotary_onButtonClick();
     }
+    lastTimePressed = currentMillis;
+  } else {
+    buttonState = LOW;
+  }
+  // if (rotaryEncoder.isEncoderButtonClicked())
+  // {
+  //   buttonState = HIGH;
+  //   rotary_onButtonClick();
+  // } else {
+  //   buttonState = LOW;
+  // }
+    
+    
 }
 
 void IRAM_ATTR readEncoderISR()
@@ -252,6 +411,11 @@ void setup(void) {
   Serial1.begin(19200, SERIAL_8N1, 19, 21); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
     
   EEPROM.begin(512);
+  
+  for (int i=0; i < (sizeof options / sizeof(options[0])); i++) {
+    option item = options[i];
+    item.addSubOption(subOpt1);
+  }
 }
 
 
@@ -266,7 +430,12 @@ void loop()
     tft.invertDisplay(true);
     if (menuState)
     {
-      renderMenu();
+      if (subMenuState)
+      {
+        renderSubMenu();
+      } else {
+        renderMenu();
+      }
     } else {
       renderMainScreen();
     }
