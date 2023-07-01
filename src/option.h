@@ -15,7 +15,7 @@ class option {
     bool active = false;
 
   public:
-    option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void),  bool mainScreen = true);
+    option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions,  bool mainScreen = true);
     int position;
     String getName();
     void getEmuDataT();
@@ -26,9 +26,11 @@ class option {
     void validate();
     bool isMainScreen();
     int getPosition();
-    subOption* itemSubOptions[20];
-    void addSubOption(subOption* subOption);
+    subOption* itemSubOptions;
+    // void addSubOption(subOption* subOption);
+    bool hasSubOption();
     subOption getSubOption(int i);
+    subOption* getSubOptions();
 };
 
 #endif

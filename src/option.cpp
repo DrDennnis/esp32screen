@@ -3,22 +3,30 @@
 #include "option.h"
 #include <EEPROM.h>
 
-option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), bool mainScreen) {
+option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, bool mainScreen) {
   itemName = name;
   itemMemoryAddress = memoryAddress;
   itemEmuDataTCallBack = emuDataTCallBack;
   itemValidateCallBack = validateCallBack;
   itemMainScreen = mainScreen;
+  itemSubOptions = subOptions;
   option::readMemoryData();
-  
 }
 
-void option::addSubOption(subOption* subOption){
-  itemSubOptions[sizeof(itemSubOptions) +1 ] = subOption;
-}
 
+// void option::addSubOption(subOption* subOption){
+//   itemSubOptions[sizeof(itemSubOptions) +1 ] = subOption;
+// }
+
+bool option::hasSubOption() {
+  return sizeof(itemSubOptions) / sizeof(int) > 0;
+}
 subOption option::getSubOption(int i) {
   return itemSubOptions[i];
+}
+
+subOption* option::getSubOptions() {
+  return itemSubOptions;
 }
 
 void option::readMemoryData()
