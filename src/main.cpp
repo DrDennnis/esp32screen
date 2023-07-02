@@ -31,8 +31,8 @@ uint16_t SCREEN_HEIGHT = 320;
 
 unsigned long previousScreenMillis = 0;
 unsigned long previousMillis = 0;
-const long screenRefreshRate = 250; // screen refresh rate
-const long debounce = 50; 
+const long screenRefreshRate = 12; // screen refresh rate
+const long debounce = 10; 
 
 int lastEncoderPos = 0;
 int optionSelected = 0;
@@ -245,17 +245,17 @@ void renderMenu()
 
     if (item.isActive())
     {
-      tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
+      tft.setTextColor(ST77XX_GREEN);
     } else {
-      tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
+      tft.setTextColor(ST77XX_RED);
     }
     
     if (!item.isMainScreen())
     {
-      tft.setTextColor(ST77XX_BLACK, ST77XX_BLACK);
+      tft.setTextColor(ST77XX_BLACK);
     }
     int blockHeight = 28;
-    tft.fillRect(1, (i*blockHeight), SCREEN_WIDTH - 2, (blockHeight - 2), color);
+    tft.drawRect(1, (i*blockHeight), SCREEN_WIDTH - 2, (blockHeight - 2), color);
     tft.setCursor(4, 1+(i*blockHeight));
 
     tft.print(item.getName());
@@ -306,7 +306,7 @@ void renderSubMenu()
     //   tft.setTextColor(ST77XX_BLACK);
     // }
     int blockHeight = 28;
-    tft.fillRect(2, (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
+    tft.drawRect(2, (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
     tft.setCursor(6, 2+(i*blockHeight));
 
     tft.print(subOption.getName());
@@ -582,12 +582,18 @@ void loop()
     if (!lastMenuState && menuState)
     {
       lastMenuState = HIGH;
+      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), true);
       tft.fillScreen(ST77XX_BLACK);
     }
     
     if (!lastSubMenuState && subMenuState)
     {
       lastSubMenuState = HIGH;
+      // selected
+      
+      option item = options[optionSelected];
+      subOption* subOptions = item.itemSubOptions;
+      rotaryEncoder.setBoundaries(0, (sizeof(subOptions) / sizeof(int) -1), true);
       tft.fillScreen(ST77XX_BLACK);
     }
     
@@ -605,11 +611,6 @@ void loop()
     renderDebugInfo();
   }
 
-  if (currentMillis - previousScreenMillis >= 10) {
-    // encoder.service(); 
-    button1.tick(); 
-  }
-  
 
 
 
@@ -651,6 +652,12 @@ void loop()
   
   if (currentMillis - previousMillis >= debounce) {
     previousMillis = currentMillis;
+    button1.tick(); 
     rotary_loop();
+  }
+
+  if (rotaryEncoder.encoderChanged())
+  {
+      Serial.println(rotaryEncoder.readEncoder());
   }
 }
