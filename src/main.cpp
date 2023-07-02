@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
-#include <ClickEncoder.h>
+#include <AiEsp32RotaryEncoder.h>
 #include <EMUSerial.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_I2CDevice.h>
@@ -9,7 +9,7 @@
 #include "option.h"
 #include "subOption.h"
 #include "SimpleMenu.h"
-#include <PinButton.h>
+#include "OneButton.h"
 
 
 // SCREEN
@@ -22,7 +22,7 @@
 //ROTARY  ENCODER
 #define ROTARY_ENCODER_A_PIN 14
 #define ROTARY_ENCODER_B_PIN 12
-#define ROTARY_ENCODER_BUTTON_PIN 34
+#define ROTARY_ENCODER_BUTTON_PIN 13
 #define ROTARY_ENCODER_VCC_PIN -1
 #define ROTARY_ENCODER_STEPS 4
 
@@ -38,7 +38,9 @@ int lastEncoderPos = 0;
 int optionSelected = 0;
 static unsigned long lastTimePressed = 0; // Soft debouncing
 int buttonState = LOW;
+int lastMenuState = LOW;
 int menuState = LOW;
+int lastSubMenuState = LOW;
 int subMenuState = LOW;
 int blockColor = ST77XX_WHITE;
 
@@ -47,7 +49,11 @@ int blockColor = ST77XX_WHITE;
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
 // Initialize AiEsp32RotaryEncoder Library
-ClickEncoder encoder = ClickEncoder(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN,ROTARY_ENCODER_BUTTON_PIN,1);
+AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN,-1,1);
+
+
+// Setup a new OneButton on pin A1.  
+OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
 
 // PinButton myButton(ROTARY_ENCODER_BUTTON_PIN, INPUT);
 
@@ -170,7 +176,6 @@ option options[] = {
   option("Oil Temp", 15, emuOilTemp, validationOilTemp, subOptions),
   option("Oil Press", 20, emuOilPresure, validationOilPresure, subOptions),
   option("CLT", 25, emuCoolantTemp, noValidation, subOptions),
-  option("BACK", 250, back, emptyCallBack, noOptions, false), // should not be here and should be handle diffrently but i dont know how 
 };
 
 
@@ -366,20 +371,22 @@ void renderDebugInfo()
 //     }
 // }
 
-// void rotary_loop()
-// {
+void rotary_loop()
+{
   
-//   unsigned long currentMillis = millis();
-//   //dont print anything unless value changed
-//   if (rotaryEncoder.encoderChanged())
-//   {
-//     // if (rotaryEncoder.readEncoder() < lastEncoderPos)
-//     // {
-//     // } else {
-//     // }
-//     lastEncoderPos = rotaryEncoder.readEncoder();
+  unsigned long currentMillis = millis();
+  //dont print anything unless value changed
+  if (rotaryEncoder.encoderChanged())
+  {
+    Serial.print("SCROLLLL : ");
+    Serial.println(rotaryEncoder.readEncoder());
+    // if (rotaryEncoder.readEncoder() < lastEncoderPos)
+    // {
+    // } else {
+    // }
+    lastEncoderPos = rotaryEncoder.readEncoder();
     
-//   }
+  }
   // if (rotaryEncoder.isEncoderButtonClicked()) {
   //   buttonState = HIGH;
   //   if (menuState == HIGH && millis() - lastTimePressed < 500 && millis() - lastTimePressed > 50)
@@ -414,12 +421,75 @@ void renderDebugInfo()
   // }
     
     
-// }
+}
 
-// void IRAM_ATTR readEncoderISR()
-// {
-//     rotaryEncoder.readEncoder_ISR();
-// }
+void IRAM_ATTR readEncoderISR()
+{
+    rotaryEncoder.readEncoder_ISR();
+}
+
+void click1() {
+  if(menuState == LOW)
+  {
+    rotaryEncoder.setEncoderValue(0);
+    menuState = HIGH;
+  } else if(options[lastEncoderPos].isMainScreen()) {
+    option item = options[lastEncoderPos];
+    if (!item.isMainScreen()) {
+      menuState = LOW;
+    } else {
+        optionSelected = lastEncoderPos;
+        rotaryEncoder.setEncoderValue(0);
+        lastEncoderPos = rotaryEncoder.readEncoder();
+      // open submenu if it has it 
+      if (subMenuState)
+      {
+        if (item.isActive()) {
+          item.setInActive();
+        } else {
+          item.setActive();
+        }
+      }
+    }
+    item.readMemoryData();
+  }
+} // click1
+
+
+// This function will be called when the button1 was pressed 2 times in a short timeframe.
+void doubleclick1() {
+  if (subMenuState == HIGH)
+  {
+      subMenuState = LOW;
+  } else if (menuState == HIGH)
+  {
+      menuState = LOW;
+  }
+} // doubleclick1
+
+
+// This function will be called once, when the button1 is pressed for a long time.
+void longPressStart1() {
+  Serial.println("Button 1 longPress start");
+} // longPressStart1
+
+
+// This function will be called often, while the button1 is pressed for a long time.
+void longPress1() {
+  Serial.println("Button 1 longPress...");
+} // longPress1
+
+
+// This function will be called once, when the button1 is released after beeing pressed for a long time.
+void longPressStop1() {
+  Serial.println("Button 1 longPress stop");
+} // longPressStop1
+
+ICACHE_RAM_ATTR void checkTicks()
+{
+  // include all buttons here to be checked
+  button1.tick(); // just call tick() to check the state.
+}
 
 
 void setup(void) {
@@ -428,26 +498,27 @@ void setup(void) {
   tft.init(SCREEN_WIDTH, SCREEN_HEIGHT, SPI_MODE2);    // Init ST7789 display 135x240 pixel
   tft.setRotation(2);
   tft.fillScreen(ST77XX_BLACK);
+  tft.invertDisplay(true);
   
   //we must initialize rotary encoder
-  // rotaryEncoder.begin();
-  // rotaryEncoder.setup(readEncoderISR);
+  rotaryEncoder.begin();
+  rotaryEncoder.setup(readEncoderISR);
   //set boundaries and if values should cycle or not
   //in this example we will set possible values between 0 and 1000;
   bool circleValues = true;
-  // rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), circleValues); //minValue, maxValue, circleValues true|false (when max go to min and vice versa)
 
 
-  encoder.setButtonHeldEnabled(true);
-  encoder.setDoubleClickEnabled(true);
+  // encoder.setButtonHeldEnabled(true);
+  // encoder.setDoubleClickEnabled(true);
   /*Rotary acceleration introduced 25.2.2021.
   * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
   * without accelerateion you need long time to get to that number
   * Using acceleration, faster you turn, faster will the value raise.
   * For fine tuning slow down.
   */
-  // rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
-  // rotaryEncoder.setAcceleration(250); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
+  rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
+  // rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
 
   Serial1.begin(19200, SERIAL_8N1, 19, 21); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
     
@@ -477,6 +548,14 @@ void setup(void) {
   //   option item = options[i];
   //   item.addSubOption(subOpt1);
   // }
+  
+  // pinMode(ROTARY_ENCODER_BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_BUTTON_PIN), checkTicks, CHANGE);
+  button1.attachClick(click1);
+  button1.attachDoubleClick(doubleclick1);
+  // button1.attachLongPressStart(longPressStart1);
+  // button1.attachLongPressStop(longPressStop1);
+  // button1.attachDuringLongPress(longPress1);
 }
 
 
@@ -488,7 +567,30 @@ void loop()
   unsigned long currentMillis = millis();
   if (currentMillis - previousScreenMillis >= screenRefreshRate) {
     previousScreenMillis = currentMillis;
-    tft.invertDisplay(true);
+    if (lastMenuState && !menuState)
+    {
+      tft.fillScreen(ST77XX_BLACK);
+      lastMenuState = LOW;
+    }
+
+    if (lastSubMenuState && !subMenuState)
+    {
+      tft.fillScreen(ST77XX_BLACK);
+      lastSubMenuState = LOW;
+    }
+
+    if (!lastMenuState && menuState)
+    {
+      lastMenuState = HIGH;
+      tft.fillScreen(ST77XX_BLACK);
+    }
+    
+    if (!lastSubMenuState && subMenuState)
+    {
+      lastSubMenuState = HIGH;
+      tft.fillScreen(ST77XX_BLACK);
+    }
+    
     if (menuState)
     {
       if (subMenuState)
@@ -503,87 +605,13 @@ void loop()
     renderDebugInfo();
   }
 
-  if (currentMillis - previousScreenMillis >= 1000) {
-    encoder.service();  
+  if (currentMillis - previousScreenMillis >= 10) {
+    // encoder.service(); 
+    button1.tick(); 
   }
+  
 
-  // rotary_loop();
-  // myButton.update();
-  
-  // if (myButton.isClick()) {
-  //   buttonState = HIGH;
-  //   Serial.print(currentMillis);
-  //   Serial.println(" click");
-  // } else {
-  //   buttonState = LOW;
-  // }
-  // if (myButton.isSingleClick()) {
-  //   Serial.print(currentMillis);
-  //   Serial.println(" single");
-  // }
-  // if (myButton.isDoubleClick()) {
-  //   Serial.print(currentMillis);
-  //   Serial.println(" double");
-  // }
-  // if (myButton.isLongClick()) {
-  //   Serial.print(currentMillis);
-  //   Serial.println(" long");
-  // }
-  // if (myButton.isReleased()) {
-  //   Serial.print(currentMillis);
-  //   Serial.println(" up");
-  // }
-  
-  ClickEncoder::Button b = encoder.getButton();
-  if (b != ClickEncoder::Open) {
-    Serial.print("Button: ");
-    switch (b) {
-      case ClickEncoder::Pressed:
-          Serial.println("ClickEncoder::Pressed");
-      break;
-      case ClickEncoder::Held:
-          Serial.println("ClickEncoder::Held");
-      break;
-      case ClickEncoder::Released:
-          Serial.println("ClickEncoder::Released");
-      break;
-      case ClickEncoder::Clicked:
-          Serial.println("ClickEncoder::Clicked");
-          if(menuState == LOW)
-          {
-            // rotaryEncoder.setEncoderValue(0);
-            lastEncoderPos = encoder.getValue();
-            menuState = HIGH;
-          } else if(options[lastEncoderPos].isMainScreen()) {
-            option item = options[lastEncoderPos];
-            if (!item.isMainScreen()) {
-              menuState = LOW;
-            } else {
-              // open submenu if it has it 
-              if (subMenuState)
-              {
-                if (item.isActive()) {
-                  item.setInActive();
-                } else {
-                  item.setActive();
-                }
-              }
-            }
-            item.readMemoryData();
-          }
-      break;
-      case ClickEncoder::DoubleClicked:
-          Serial.println("ClickEncoder::DoubleClicked");
-          if (subMenuState == HIGH)
-          {
-              subMenuState = LOW;
-          } else if (menuState == HIGH)
-          {
-              menuState = LOW;
-          }
-        break;
-    }
-  }
+
 
   // if (myButton.isSingleClick()) {
   //   if(menuState == LOW)
@@ -623,5 +651,6 @@ void loop()
   
   if (currentMillis - previousMillis >= debounce) {
     previousMillis = currentMillis;
+    rotary_loop();
   }
 }
