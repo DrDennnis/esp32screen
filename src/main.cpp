@@ -7,8 +7,6 @@
 #include <Adafruit_ST7789.h>
 #include <SPI.h>
 #include "option.h"
-#include "subOption.h"
-#include "SimpleMenu.h"
 #include "OneButton.h"
 
 
@@ -142,10 +140,17 @@ void back()
 
 // subOption subOpt1 = subOption("Position",1);
 // subOption subOpt2 = subOption("Active",2);
+int subOptionCount = 2;
+info positionInfo = info(false);
+info activeInfo = info(true, 0);
+info fullscreenInfo = info(true, 1);
+
 subOption subOptions[] = {
-  subOption("Position",1),
-  subOption("Active",2),
+  subOption("Position", &positionInfo),
+  subOption("Active", &activeInfo),
+  subOption("FullScreen", &activeInfo),
 };
+int noOptionCount = 0;
 subOption noOptions[] = {
 };
 
@@ -170,12 +175,12 @@ subOption noOptions[] = {
 // };
 
 option options[] = {
-  option("Rpm", 1, emuRpm, noValidation, subOptions),
-  option("Batt", 5, emuBatt, validationBatt, subOptions),
-  option("IAT", 10, emuIat, noValidation, subOptions),
-  option("Oil Temp", 15, emuOilTemp, validationOilTemp, subOptions),
-  option("Oil Press", 20, emuOilPresure, validationOilPresure, subOptions),
-  option("CLT", 25, emuCoolantTemp, noValidation, subOptions),
+  option("Rpm", 1, emuRpm, noValidation, subOptions,subOptionCount),
+  option("Batt", 5, emuBatt, validationBatt, subOptions, subOptionCount),
+  option("IAT", 10, emuIat, noValidation, subOptions,subOptionCount),
+  option("Oil Temp", 15, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
+  option("Oil Press", 20, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
+  option("CLT", 25, emuCoolantTemp, noValidation, subOptions,subOptionCount),
 };
 
 
@@ -200,7 +205,7 @@ void renderMainScreen() {
     option item = options[i];
     item.readMemoryData();
 
-    if (item.isActive() && item.isMainScreen())
+    if (item.isActive())
     {
       itemCount++;
       if (itemCount > 1)
@@ -249,11 +254,6 @@ void renderMenu()
     } else {
       tft.setTextColor(ST77XX_RED);
     }
-    
-    if (!item.isMainScreen())
-    {
-      tft.setTextColor(ST77XX_BLACK);
-    }
     int blockHeight = 28;
     tft.drawRect(1, (i*blockHeight), SCREEN_WIDTH - 2, (blockHeight - 2), color);
     tft.setCursor(4, 1+(i*blockHeight));
@@ -267,50 +267,41 @@ void renderSubMenu()
 {
   tft.setTextSize(3);
   tft.setCursor(0, 10);
+
+  option item = options[optionSelected];
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  tft.print(item.getName());
   
-    option item = options[optionSelected];
-    tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
-    tft.print(item.getName());
-    
-    subOption* subOptions = item.itemSubOptions;
-    Serial.print(sizeof(subOptions) / sizeof(int));
-    Serial.print("/");
-    Serial.print(item.hasSubOption());
-    Serial.println("");
-    
-  for (int i=0; i < (sizeof(subOptions) / sizeof(int)); i++) {
-    subOption subOption = subOptions[i];
-    // item.readMemoryData();
+  int yOffset = 40;
+  if (item.hasSubOption())
+  {
+    subOption* subOptions = item.getSubOptions();
+    for (int i=0; i < item.getSubOptionCount(); i++) {
+      subOption subOption = subOptions[i];
+      int16_t color = 0x52AA;
+      if (i == lastEncoderPos)
+      {
+        color = 0x94F2;
+      }
 
-    Serial.print(sizeof(subOptions) / sizeof(int));
-    Serial.print("/");
-    Serial.print(lastEncoderPos);
-    Serial.print(":");
-    Serial.print(subOption.getName());
-    Serial.println("");
-    int16_t color = 0x52AA;
-    if (i == lastEncoderPos)
-    {
-      color = 0x94F2;
-    }
+      // if (item.isActive())
+      // {
+      //   tft.setTextColor(ST77XX_GREEN);
+      // } else {
+      //   tft.setTextColor(ST77XX_RED);
+      // }
+      
+      // if (!item.isMainScreen())
+      // {
+      //   tft.setTextColor(ST77XX_BLACK);
+      // }
+      int blockHeight = 28;
+      tft.drawRect(2, yOffset + (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
+      tft.setCursor(6, yOffset + 1+(i*blockHeight));
 
-    // if (item.isActive())
-    // {
-    //   tft.setTextColor(ST77XX_GREEN);
-    // } else {
-    //   tft.setTextColor(ST77XX_RED);
-    // }
-    
-    // if (!item.isMainScreen())
-    // {
-    //   tft.setTextColor(ST77XX_BLACK);
-    // }
-    int blockHeight = 28;
-    tft.drawRect(2, (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
-    tft.setCursor(6, 2+(i*blockHeight));
-
-    tft.print(subOption.getName());
-    tft.println();
+      tft.print(subOption.getName());
+      tft.println();
+    } 
   }
 }
 
@@ -339,45 +330,9 @@ void renderDebugInfo()
 }
 
 
-// void rotary_onButtonClick()
-// {
-//     Serial.print("OpenMenu : ");
-//     Serial.print(menuState);
-//     Serial.print(" : ");
-//     Serial.print(subMenuState);
-//     Serial.print(" : ");
-//     Serial.println(lastTimePressed);
-//     if (millis() - lastTimePressed < 500)
-//     {
-//             return;
-//     }
-//     if(menuState == LOW)
-//     {
-//       rotaryEncoder.setEncoderValue(0);
-//       lastEncoderPos = rotaryEncoder.readEncoder();
-//       menuState = HIGH;
-//     } else {
-//       option item = options[lastEncoderPos];
-//       if (!item.isMainScreen()) {
-//         menuState = LOW;
-//       } else {
-//         if (item.isActive()) {
-//           item.setInActive();
-//         } else {
-//           item.setActive();
-//         }
-//       }
-//       item.readMemoryData();
-//     }
-// }
-
-void rotary_loop()
-{
-  
-  unsigned long currentMillis = millis();
-  //dont print anything unless value changed
-  if (rotaryEncoder.encoderChanged())
-  {
+void rotary_loop() {
+  lastEncoderPos = rotaryEncoder.readEncoder();
+  if (rotaryEncoder.encoderChanged()) {
     Serial.print("SCROLLLL : ");
     Serial.println(rotaryEncoder.readEncoder());
     // if (rotaryEncoder.readEncoder() < lastEncoderPos)
@@ -387,40 +342,6 @@ void rotary_loop()
     lastEncoderPos = rotaryEncoder.readEncoder();
     
   }
-  // if (rotaryEncoder.isEncoderButtonClicked()) {
-  //   buttonState = HIGH;
-  //   if (menuState == HIGH && millis() - lastTimePressed < 500 && millis() - lastTimePressed > 50)
-  //   {
-  //     Serial.print("OpenSubMenu : with Menu state :");
-  //     Serial.print(menuState);
-  //     Serial.print(" : ");
-  //     Serial.print(subMenuState);
-  //     Serial.print(" : ");
-  //     Serial.println(lastTimePressed);
-  //     option item = options[lastEncoderPos];
-  //     if(menuState == HIGH && sizeof(item.itemSubOptions) > 1)
-  //     {
-  //       subMenuState = HIGH;
-  //       optionSelected = lastEncoderPos;
-  //       rotaryEncoder.setEncoderValue(0);
-  //       lastEncoderPos = rotaryEncoder.readEncoder();
-  //     }
-  //   } else {
-  //     rotary_onButtonClick();
-  //   }
-  //   lastTimePressed = currentMillis;
-  // } else {
-  //   buttonState = LOW;
-  // }
-  // if (rotaryEncoder.isEncoderButtonClicked())
-  // {
-  //   buttonState = HIGH;
-  //   rotary_onButtonClick();
-  // } else {
-  //   buttonState = LOW;
-  // }
-    
-    
 }
 
 void IRAM_ATTR readEncoderISR()
@@ -433,25 +354,25 @@ void click1() {
   {
     rotaryEncoder.setEncoderValue(0);
     menuState = HIGH;
-  } else if(options[lastEncoderPos].isMainScreen()) {
-    option item = options[lastEncoderPos];
-    if (!item.isMainScreen()) {
-      menuState = LOW;
-    } else {
-        optionSelected = lastEncoderPos;
-        rotaryEncoder.setEncoderValue(0);
-        lastEncoderPos = rotaryEncoder.readEncoder();
-      // open submenu if it has it 
-      if (subMenuState)
+  } else if(subMenuState == LOW) {
+      option item = options[lastEncoderPos];
+      optionSelected = lastEncoderPos;
+      rotaryEncoder.setEncoderValue(0);
+      lastEncoderPos = rotaryEncoder.readEncoder();
+      subMenuState = HIGH;
+  } else {
+      option item = options[optionSelected];
+      if (item.hasSubOption() && item.isInRange(lastEncoderPos +1))
       {
-        if (item.isActive()) {
-          item.setInActive();
-        } else {
-          item.setActive();
+        subOption subOption = item.getSubOptions()[lastEncoderPos];
+        if ( subOption.getInfo().isUpdateMemory)
+        {
+          item.updateMemory(subOption.getInfo().memoryAddressModifier, false);
+          item.readMemoryData();
         }
+        
       }
-    }
-    item.readMemoryData();
+      
   }
 } // click1
 
@@ -493,6 +414,8 @@ ICACHE_RAM_ATTR void checkTicks()
 
 
 void setup(void) {
+  pinMode(ROTARY_ENCODER_A_PIN, INPUT_PULLUP);
+  pinMode(ROTARY_ENCODER_B_PIN, INPUT_PULLUP);
   Serial.begin(9600);
 
   tft.init(SCREEN_WIDTH, SCREEN_HEIGHT, SPI_MODE2);    // Init ST7789 display 135x240 pixel
@@ -524,31 +447,6 @@ void setup(void) {
     
   EEPROM.begin(512);
   
-  Serial.print((sizeof(options) / sizeof(options[0])));
-  Serial.print("/");
-  Serial.print((sizeof(subOptions) / sizeof(int)));
-  Serial.print(std::size_t(subOptions));
-  Serial.print("/");
-  // Serial.print((sizeof(opt1.itemSubOptions) / sizeof(opt1.itemSubOptions[0])));
-  Serial.print("/");
-  Serial.println("");
-  for (option option : options) {
-        Serial.print(option.getName());
-        Serial.print(">");
-    subOption *subOptions = option.itemSubOptions;
-      for (int i = 0; i < sizeof(subOptions) / sizeof(int); i++) {
-        Serial.print(subOptions[i].getName());
-        Serial.print("|");
-      }
-      Serial.println("");
-  }
-  // Serial.print(opt1.itemSubOptions[0].getName());
-
-  // for (int i=0; i < (sizeof options / sizeof(options[0])); i++) {
-  //   option item = options[i];
-  //   item.addSubOption(subOpt1);
-  // }
-  
   // pinMode(ROTARY_ENCODER_BUTTON_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_BUTTON_PIN), checkTicks, CHANGE);
   button1.attachClick(click1);
@@ -577,12 +475,13 @@ void loop()
     {
       tft.fillScreen(ST77XX_BLACK);
       lastSubMenuState = LOW;
+      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
     }
 
     if (!lastMenuState && menuState)
     {
       lastMenuState = HIGH;
-      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), true);
+      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
       tft.fillScreen(ST77XX_BLACK);
     }
     
@@ -592,8 +491,7 @@ void loop()
       // selected
       
       option item = options[optionSelected];
-      subOption* subOptions = item.itemSubOptions;
-      rotaryEncoder.setBoundaries(0, (sizeof(subOptions) / sizeof(int) -1), true);
+      rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, true);
       tft.fillScreen(ST77XX_BLACK);
     }
     
@@ -609,55 +507,10 @@ void loop()
       renderMainScreen();
     }
     renderDebugInfo();
-  }
 
-
-
-
-  // if (myButton.isSingleClick()) {
-  //   if(menuState == LOW)
-  //   {
-  //     // rotaryEncoder.setEncoderValue(0);
-  //     lastEncoderPos = encoder->getValue();
-  //     menuState = HIGH;
-  //   } else if(options[lastEncoderPos].isMainScreen()) {
-  //     option item = options[lastEncoderPos];
-  //     if (!item.isMainScreen()) {
-  //       menuState = LOW;
-  //     } else {
-  //       // open submenu if it has it 
-  //       if (subMenuState)
-  //       {
-  //         if (item.isActive()) {
-  //           item.setInActive();
-  //         } else {
-  //           item.setActive();
-  //         }
-  //       }
-        
-  //     }
-  //     item.readMemoryData();
-  //   }
-  // }
-
-  // if (myButton.isDoubleClick()) {
-  //   if (subMenuState == HIGH)
-  //   {
-  //       subMenuState = LOW;
-  //   } else if (menuState == HIGH)
-  //   {
-  //       menuState = LOW;
-  //   }
-  // }
-  
   if (currentMillis - previousMillis >= debounce) {
     previousMillis = currentMillis;
     button1.tick(); 
     rotary_loop();
-  }
-
-  if (rotaryEncoder.encoderChanged())
-  {
-      Serial.println(rotaryEncoder.readEncoder());
   }
 }

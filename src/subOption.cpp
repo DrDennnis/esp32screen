@@ -3,9 +3,9 @@
 #include "subOption.h"
 #include <EEPROM.h>
 
-subOption::subOption(String name, int memoryAddressModifier) {
+subOption::subOption(String name, info structInfo) {
   itemName = name;
-  itemMemoryAddressModifier = memoryAddressModifier;
+  itemInfo = structInfo;
 }
 
 String subOption::getName()
@@ -13,8 +13,7 @@ String subOption::getName()
   return itemName;
 }
 
-int subOption::getMemoryAddressModifier()
+info subOption::getInfo()
 {
-  return itemMemoryAddressModifier;
+  return itemInfo;
 }
-

@@ -3,12 +3,12 @@
 #include "option.h"
 #include <EEPROM.h>
 
-option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, bool mainScreen) {
+option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, int subOptionCount) {
   itemName = name;
   itemMemoryAddress = memoryAddress;
   itemEmuDataTCallBack = emuDataTCallBack;
   itemValidateCallBack = validateCallBack;
-  itemMainScreen = mainScreen;
+  itemSubOptionCount = subOptionCount;
   itemSubOptions = subOptions;
   option::readMemoryData();
 }
@@ -19,15 +19,47 @@ option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), v
 // }
 
 bool option::hasSubOption() {
-  return sizeof(itemSubOptions) / sizeof(int) > 0;
+  return itemSubOptionCount > 0;
 }
-subOption option::getSubOption(int i) {
-  return itemSubOptions[i];
+
+bool option::isInRange(int count) {
+  return itemSubOptionCount >= count;
 }
+
 
 subOption* option::getSubOptions() {
   return itemSubOptions;
 }
+
+int option::getSubOptionCount() {
+  return itemSubOptionCount;
+}
+
+
+void option::updateMemory(int memoryAddresModifier, bool value)
+{
+  EEPROM.writeBool(itemMemoryAddress + memoryAddresModifier, value);
+  EEPROM.commit();
+}
+
+void option::updateMemory(int memoryAddresModifier, int value)
+{
+  EEPROM.writeInt(itemMemoryAddress + memoryAddresModifier, value);
+  EEPROM.commit();
+}
+
+void option::updateMemory(int memoryAddresModifier, String value)
+{
+  EEPROM.writeString(itemMemoryAddress + memoryAddresModifier, value);
+  EEPROM.commit();
+}
+
+void option::updateMemory(int memoryAddresModifier, float value)
+{
+  EEPROM.writeFloat(itemMemoryAddress + memoryAddresModifier, value);
+  EEPROM.commit();
+}
+
 
 void option::readMemoryData()
 {
@@ -55,11 +87,6 @@ void option::setInActive()
 {
   EEPROM.writeBool(itemMemoryAddress, false);
   EEPROM.commit();
-}
-
-bool option::isMainScreen()
-{
-  return itemMainScreen;
 }
 
 String option::getName()
