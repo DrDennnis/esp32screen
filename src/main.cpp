@@ -47,7 +47,7 @@ int blockColor = ST77XX_WHITE;
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
 // Initialize AiEsp32RotaryEncoder Library
-AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN,ROTARY_ENCODER_B_PIN,-1,1);
+AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, -1, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
 
 
 // Setup a new OneButton on pin A1.  
@@ -60,36 +60,58 @@ EMUSerial emu(Serial1);
 
 void emuRpm()
 {
-  tft.print(printf("%04d", emu.emu_data.RPM));
+  tft.printf("%04d", emu.emu_data.RPM);
 }
 
 void emuBatt()
 {
-  tft.print(printf("%02d.%02d", emu.emu_data.Batt));
-  tft.print(" V");
+  float value = emu.emu_data.Batt;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  tft.printf("%.2fV", emu.emu_data.Batt);
 }
 
 void emuIat()
 {
-  tft.print(printf("%02d.%02d", emu.emu_data.IAT));
-  tft.print(" C");
+  float value = emu.emu_data.IAT;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  tft.printf("%.2fC", emu.emu_data.IAT);
 }
 
 void emuOilPresure()
 {
-  tft.print(printf("%02d.%02d", emu.emu_data.oilPressure));
+  float value = emu.emu_data.oilPressure;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  tft.printf("%.2f", emu.emu_data.oilPressure);
 }
 
 void emuOilTemp()
 {
-  tft.print(printf("%02d.%02d", emu.emu_data.oilTemperature));
-  tft.print(" C");
+  float value = emu.emu_data.oilTemperature;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  tft.printf("%.2fC", emu.emu_data.oilTemperature);
 }
 
 void emuCoolantTemp()
 {
-  tft.print(printf("%02d.%02d", emu.emu_data.CLT));
-  tft.print(" C");
+  float value = emu.emu_data.CLT;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  
+  tft.printf("%.2fC", emu.emu_data.CLT);
 }
 
 void noValidation()
@@ -140,15 +162,15 @@ void back()
 
 // subOption subOpt1 = subOption("Position",1);
 // subOption subOpt2 = subOption("Active",2);
-int subOptionCount = 2;
+int subOptionCount = 3;
+info activeInfo = info(true, 0, Type_Bool);
+info fullWidthInfo = info(true, 1, Type_Bool);
 info positionInfo = info(false);
-info activeInfo = info(true, 0);
-info fullscreenInfo = info(true, 1);
 
 subOption subOptions[] = {
-  subOption("Position", &positionInfo),
   subOption("Active", &activeInfo),
-  subOption("FullScreen", &activeInfo),
+  subOption("FullWidth", &fullWidthInfo),
+  subOption("Position", &positionInfo),
 };
 int noOptionCount = 0;
 subOption noOptions[] = {
@@ -205,7 +227,21 @@ void renderMainScreen() {
     option item = options[i];
     item.readMemoryData();
 
-    if (item.isActive())
+    bool active = false;
+    bool fullWidth = false;
+    subOption* subOptions = item.getSubOptions();
+    for (int i=0; i < item.getSubOptionCount(); i++) {
+      subOption subOption = subOptions[i];
+      if (subOption.getName() == "Active")
+      {
+        active = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+      }
+      if (subOption.getName() == "FullWidth")
+      {
+        fullWidth = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+      }
+    }
+    if (active)
     {
       itemCount++;
       if (itemCount > 1)
@@ -218,8 +254,20 @@ void renderMainScreen() {
           y += blockHeight;
         }
       }
+      int width = (SCREEN_WIDTH / 2);
+      if (fullWidth)
+      {
+        width = SCREEN_WIDTH;
+        if ( itemCount % 2 == 0)
+        {
+          x = +2;
+        }
+
+        itemCount++;
+      }
+      
       item.validate();
-      tft.drawRect(x, y, (SCREEN_WIDTH / 2) - 2, (blockHeight - 2), blockColor);
+      tft.drawRect(x, y, width - 2, (blockHeight - 2), blockColor);
       tft.setCursor(4 + x, 2 + y);
 
       tft.setTextSize(2);
@@ -247,8 +295,18 @@ void renderMenu()
     {
       color = 0x94F2;
     }
+    
+    bool active = false;
+    subOption* subOptions = item.getSubOptions();
+    for (int i=0; i < item.getSubOptionCount(); i++) {
+      subOption subOption = subOptions[i];
+      if (subOption.getName() == "Active")
+      {
+        active = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+      }
+    }
 
-    if (item.isActive())
+    if (active)
     {
       tft.setTextColor(ST77XX_GREEN);
     } else {
@@ -273,33 +331,28 @@ void renderSubMenu()
   tft.print(item.getName());
   
   int yOffset = 40;
+  int blockHeight = 50;
   if (item.hasSubOption())
   {
     subOption* subOptions = item.getSubOptions();
     for (int i=0; i < item.getSubOptionCount(); i++) {
+      tft.setTextSize(3);
       subOption subOption = subOptions[i];
       int16_t color = 0x52AA;
       if (i == lastEncoderPos)
       {
         color = 0x94F2;
       }
-
-      // if (item.isActive())
-      // {
-      //   tft.setTextColor(ST77XX_GREEN);
-      // } else {
-      //   tft.setTextColor(ST77XX_RED);
-      // }
-      
-      // if (!item.isMainScreen())
-      // {
-      //   tft.setTextColor(ST77XX_BLACK);
-      // }
-      int blockHeight = 28;
       tft.drawRect(2, yOffset + (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
       tft.setCursor(6, yOffset + 1+(i*blockHeight));
-
       tft.print(subOption.getName());
+      tft.println();
+
+      tft.setTextSize(2);
+      if (subOption.getInfo().type == Type_Bool)
+      {
+        tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True" : "False");
+      }
       tft.println();
     } 
   }
@@ -365,10 +418,13 @@ void click1() {
       if (item.hasSubOption() && item.isInRange(lastEncoderPos +1))
       {
         subOption subOption = item.getSubOptions()[lastEncoderPos];
+        Serial.print(subOption.getName());
         if ( subOption.getInfo().isUpdateMemory)
         {
-          item.updateMemory(subOption.getInfo().memoryAddressModifier, false);
-          item.readMemoryData();
+          if (subOption.getInfo().type == Type_Bool)
+          {
+            item.updateMemory(subOption.getInfo().memoryAddressModifier, !item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier));
+          }
         }
         
       }
@@ -491,7 +547,7 @@ void loop()
       // selected
       
       option item = options[optionSelected];
-      rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, true);
+      rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
       tft.fillScreen(ST77XX_BLACK);
     }
     
@@ -507,6 +563,7 @@ void loop()
       renderMainScreen();
     }
     renderDebugInfo();
+  }
 
   if (currentMillis - previousMillis >= debounce) {
     previousMillis = currentMillis;

@@ -35,6 +35,9 @@ class option {
     void updateMemory(int memoryAddresModifier, int value);
     void updateMemory(int memoryAddresModifier, String value);
     void updateMemory(int memoryAddresModifier, float value);
+    bool readMemoryDataBool(int memoryAddresModifier);
+    int readMemoryDataInt(int memoryAddresModifier);
+    float readMemoryDataFloat(int memoryAddresModifier);
 };
 
 #endif

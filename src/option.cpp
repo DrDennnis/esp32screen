@@ -60,6 +60,20 @@ void option::updateMemory(int memoryAddresModifier, float value)
   EEPROM.commit();
 }
 
+bool option::readMemoryDataBool(int memoryAddresModifier)
+{
+  return EEPROM.readBool(itemMemoryAddress + memoryAddresModifier);
+}
+
+int option::readMemoryDataInt(int memoryAddresModifier)
+{
+  return EEPROM.readInt(itemMemoryAddress + memoryAddresModifier);
+}
+
+float option::readMemoryDataFloat(int memoryAddresModifier)
+{
+  return EEPROM.readFloat(itemMemoryAddress + memoryAddresModifier);
+}
 
 void option::readMemoryData()
 {
