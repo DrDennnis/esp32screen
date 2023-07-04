@@ -60,35 +60,35 @@ EMUSerial emu(Serial1);
 
 void emuRpm()
 {
-  tft.print(emu.emu_data.RPM);
+  tft.print(printf("%04d", emu.emu_data.RPM));
 }
 
 void emuBatt()
 {
-  tft.print(emu.emu_data.Batt);
+  tft.print(printf("%02d.%02d", emu.emu_data.Batt));
   tft.print(" V");
 }
 
 void emuIat()
 {
-  tft.print(emu.emu_data.IAT);
+  tft.print(printf("%02d.%02d", emu.emu_data.IAT));
   tft.print(" C");
 }
 
 void emuOilPresure()
 {
-  tft.print(emu.emu_data.oilPressure);
+  tft.print(printf("%02d.%02d", emu.emu_data.oilPressure));
 }
 
 void emuOilTemp()
 {
-  tft.print(emu.emu_data.oilTemperature);
+  tft.print(printf("%02d.%02d", emu.emu_data.oilTemperature));
   tft.print(" C");
 }
 
 void emuCoolantTemp()
 {
-  tft.print(emu.emu_data.CLT);
+  tft.print(printf("%02d.%02d", emu.emu_data.CLT));
   tft.print(" C");
 }
 
