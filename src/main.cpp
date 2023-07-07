@@ -16,6 +16,7 @@
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #endif
+#include <ESPmDNS.h>
 
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
@@ -55,8 +56,11 @@ int subMenuState = LOW;
 int blockColor = ST77XX_WHITE;
 
 
-const char* ssid = "ECUMASTER";
+const char* ssid = "EmuScreen";
 const char* password = "12345678";
+IPAddress local_ip(192,168,1,1);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
 
 
 // Initialize Adafruit ST7789 TFT library
@@ -388,12 +392,13 @@ void renderSubMenu()
 void renderUpdateScreen(){
   tft.setCursor(0, 10);
   tft.setTextSize(2);
-  tft.print("IP address: ");
-  // tft.println(WiFi.softAPIP());
-  
-  tft.print("IP address: ");
-  // tft.println(WiFi.localIP());
-
+  tft.println("Connect to:");
+  tft.println(ssid);
+  tft.println("With Password:");
+  tft.println(password);
+  tft.println("After go to url:");
+  tft.printf("%s.local", ssid);
+  tft.println();
 }
 
 bool debugIndicator = false;
@@ -480,11 +485,11 @@ void doubleclick1() {
   {
       menuState = LOW;
   } else if(!updateScreen) {
+    Serial.println("Wifi should be enabled for updating");
     updateScreen = HIGH;
     updateMode = HIGH;
     tft.fillScreen(ST77XX_BLACK);
-  }
-  if (updateScreen)
+  } else if (updateScreen)
   {
     ESP.restart();
   }
@@ -516,18 +521,8 @@ ICACHE_RAM_ATTR void checkTicks()
 }
 
 void enableHotspot () {
-  Serial.println("before mode");
-  WiFi.mode(WIFI_AP);
-  delay(2000);
-  Serial.println("before softAP");
-  WiFi.softAP(ssid);
-  Serial.println("before softAPConfig");
-
-  Serial.print("IP address: ");
-  Serial.println(WiFi.softAPIP());
-  
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  WiFi.softAP(ssid, password);
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->redirect("/update");
@@ -535,7 +530,7 @@ void enableHotspot () {
 
   AsyncElegantOTA.begin(&server);    // Start ElegantOTA
   server.begin();
-  Serial.println("HTTP server started");
+  MDNS.begin(ssid);
 }
 
 
@@ -580,6 +575,7 @@ void setup(void) {
   // button1.attachLongPressStart(longPressStart1);
   // button1.attachLongPressStop(longPressStop1);
   // button1.attachDuringLongPress(longPress1);
+  
 }
 
 
@@ -630,15 +626,19 @@ void loop()
 
 
     if (updateScreen) {
+        Serial.println("render updateScreen");
         renderUpdateScreen();
     } else if (menuState) {
       if (subMenuState)
       {
+        Serial.println("render SubMenu");
         renderSubMenu();
       } else {
+        Serial.println("render Menu");
         renderMenu();
       }
     } else {
+        Serial.println("render MainScreen");
       renderMainScreen();
     }
     renderDebugInfo();
