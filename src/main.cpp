@@ -9,6 +9,17 @@
 #include "option.h"
 #include "OneButton.h"
 
+#ifdef ESP32
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#endif
+
+#include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
+
 
 // SCREEN
 #define TFT_MOSI 23  // SDA Pin on ESP32
@@ -23,6 +34,7 @@
 #define ROTARY_ENCODER_BUTTON_PIN 13
 #define ROTARY_ENCODER_VCC_PIN -1
 #define ROTARY_ENCODER_STEPS 4
+
 
 uint16_t SCREEN_WIDTH = 240;
 uint16_t SCREEN_HEIGHT = 320;
@@ -43,6 +55,10 @@ int subMenuState = LOW;
 int blockColor = ST77XX_WHITE;
 
 
+const char* ssid = "ECUMASTER";
+const char* password = "12345678";
+
+
 // Initialize Adafruit ST7789 TFT library
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -56,6 +72,11 @@ OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
 // PinButton myButton(ROTARY_ENCODER_BUTTON_PIN, INPUT);
 
 EMUSerial emu(Serial1);
+
+AsyncWebServer server(80);
+
+bool updateMode = LOW;
+bool updateScreen = LOW;
 
 
 void emuRpm()
@@ -163,8 +184,8 @@ void back()
 // subOption subOpt1 = subOption("Position",1);
 // subOption subOpt2 = subOption("Active",2);
 int subOptionCount = 3;
-info activeInfo = info(true, 0, Type_Bool);
-info fullWidthInfo = info(true, 1, Type_Bool);
+info activeInfo = info(true, 0, info::Type_Bool);
+info fullWidthInfo = info(true, 1, info::Type_Bool);
 info positionInfo = info(false);
 
 subOption subOptions[] = {
@@ -349,13 +370,30 @@ void renderSubMenu()
       tft.println();
 
       tft.setTextSize(2);
-      if (subOption.getInfo().type == Type_Bool)
+      tft.print(subOption.getInfo().type);
+      tft.print("/");
+      tft.print(info::Type_Bool);
+      tft.print("/");
+      tft.print(subOption.getInfo().type == info::Type_Bool);
+      tft.print(":");
+      if (subOption.getInfo().type == info::Type_Bool)
       {
         tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True" : "False");
       }
       tft.println();
     } 
   }
+}
+
+void renderUpdateScreen(){
+  tft.setCursor(0, 10);
+  tft.setTextSize(2);
+  tft.print("IP address: ");
+  // tft.println(WiFi.softAPIP());
+  
+  tft.print("IP address: ");
+  // tft.println(WiFi.localIP());
+
 }
 
 bool debugIndicator = false;
@@ -421,7 +459,7 @@ void click1() {
         Serial.print(subOption.getName());
         if ( subOption.getInfo().isUpdateMemory)
         {
-          if (subOption.getInfo().type == Type_Bool)
+          if (subOption.getInfo().type == info::Type_Bool)
           {
             item.updateMemory(subOption.getInfo().memoryAddressModifier, !item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier));
           }
@@ -441,7 +479,16 @@ void doubleclick1() {
   } else if (menuState == HIGH)
   {
       menuState = LOW;
+  } else if(!updateScreen) {
+    updateScreen = HIGH;
+    updateMode = HIGH;
+    tft.fillScreen(ST77XX_BLACK);
   }
+  if (updateScreen)
+  {
+    ESP.restart();
+  }
+  
 } // doubleclick1
 
 
@@ -466,6 +513,29 @@ ICACHE_RAM_ATTR void checkTicks()
 {
   // include all buttons here to be checked
   button1.tick(); // just call tick() to check the state.
+}
+
+void enableHotspot () {
+  Serial.println("before mode");
+  WiFi.mode(WIFI_AP);
+  delay(2000);
+  Serial.println("before softAP");
+  WiFi.softAP(ssid);
+  Serial.println("before softAPConfig");
+
+  Serial.print("IP address: ");
+  Serial.println(WiFi.softAPIP());
+  
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/update");
+  });
+
+  AsyncElegantOTA.begin(&server);    // Start ElegantOTA
+  server.begin();
+  Serial.println("HTTP server started");
 }
 
 
@@ -514,9 +584,16 @@ void setup(void) {
 
 
  
+int maxCount = 13;
+int currentCount = 0;
+
 void loop()
 {
 	emu.checkEmuSerial();
+  if (updateMode) {
+    enableHotspot();
+    updateMode = false;
+  }
 
   unsigned long currentMillis = millis();
   if (currentMillis - previousScreenMillis >= screenRefreshRate) {
@@ -550,9 +627,11 @@ void loop()
       rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
       tft.fillScreen(ST77XX_BLACK);
     }
-    
-    if (menuState)
-    {
+
+
+    if (updateScreen) {
+        renderUpdateScreen();
+    } else if (menuState) {
       if (subMenuState)
       {
         renderSubMenu();
@@ -563,6 +642,7 @@ void loop()
       renderMainScreen();
     }
     renderDebugInfo();
+    
   }
 
   if (currentMillis - previousMillis >= debounce) {
