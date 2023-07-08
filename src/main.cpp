@@ -22,6 +22,13 @@
 #include <AsyncElegantOTA.h>
 
 
+enum subOptionType: int
+{
+    Type_Bool  = 1,
+    Type_Int = 2,
+    Type_String = 3,
+};
+
 // SCREEN
 #define TFT_MOSI 23  // SDA Pin on ESP32
 #define TFT_SCLK 18  // SCL Pin on ESP32
@@ -139,6 +146,17 @@ void emuCoolantTemp()
   tft.printf("%.2fC", emu.emu_data.CLT);
 }
 
+void emuAfr()
+{
+  float value = emu.emu_data.wboAFR;
+  if (value < 10)
+  {
+    tft.print(0);
+  }
+  
+  tft.printf("%.2fC", emu.emu_data.wboAFR);
+}
+
 void noValidation()
 {
   tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
@@ -188,8 +206,8 @@ void back()
 // subOption subOpt1 = subOption("Position",1);
 // subOption subOpt2 = subOption("Active",2);
 int subOptionCount = 3;
-info activeInfo = info(true, 0, info::Type_Bool);
-info fullWidthInfo = info(true, 1, info::Type_Bool);
+info activeInfo = info(true, 0, 1);
+info fullWidthInfo = info(true, 1, 1);
 info positionInfo = info(false);
 
 subOption subOptions[] = {
@@ -228,6 +246,7 @@ option options[] = {
   option("Oil Temp", 15, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
   option("Oil Press", 20, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
   option("CLT", 25, emuCoolantTemp, noValidation, subOptions,subOptionCount),
+  option("AFR", 30, emuAfr, noValidation, subOptions,subOptionCount),
 };
 
 
@@ -376,11 +395,11 @@ void renderSubMenu()
       tft.setTextSize(2);
       tft.print(subOption.getInfo().type);
       tft.print("/");
-      tft.print(info::Type_Bool);
+      tft.print(subOptionType::Type_Bool);
       tft.print("/");
-      tft.print(subOption.getInfo().type == info::Type_Bool);
+      tft.print(subOption.getInfo().type == 1);
       tft.print(":");
-      if (subOption.getInfo().type == info::Type_Bool)
+      if (subOption.getInfo().type == 1)
       {
         tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True" : "False");
       }
@@ -464,7 +483,7 @@ void click1() {
         Serial.print(subOption.getName());
         if ( subOption.getInfo().isUpdateMemory)
         {
-          if (subOption.getInfo().type == info::Type_Bool)
+          if (subOption.getInfo().type == subOptionType::Type_Bool)
           {
             item.updateMemory(subOption.getInfo().memoryAddressModifier, !item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier));
           }
@@ -575,7 +594,7 @@ void setup(void) {
   // button1.attachLongPressStart(longPressStart1);
   // button1.attachLongPressStop(longPressStop1);
   // button1.attachDuringLongPress(longPress1);
-  
+    
 }
 
 
