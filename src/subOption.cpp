@@ -1,7 +1,6 @@
 // subOption.cpp
 
 #include "subOption.h"
-#include <EEPROM.h>
 
 subOption::subOption(String name, info structInfo) {
   itemName = name;

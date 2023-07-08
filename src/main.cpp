@@ -22,13 +22,6 @@
 #include <AsyncElegantOTA.h>
 
 
-enum subOptionType: int
-{
-    Type_Bool  = 1,
-    Type_Int = 2,
-    Type_String = 3,
-};
-
 // SCREEN
 #define TFT_MOSI 23  // SDA Pin on ESP32
 #define TFT_SCLK 18  // SCL Pin on ESP32
@@ -61,6 +54,9 @@ int menuState = LOW;
 int lastSubMenuState = LOW;
 int subMenuState = LOW;
 int blockColor = ST77XX_WHITE;
+
+bool intSuboptionSelected = false;
+int selectedSubOption = 0;
 
 
 const char* ssid = "EmuScreen";
@@ -154,7 +150,7 @@ void emuAfr()
     tft.print(0);
   }
   
-  tft.printf("%.2fC", emu.emu_data.wboAFR);
+  tft.printf("%.2f", emu.emu_data.wboAFR);
 }
 
 void noValidation()
@@ -206,14 +202,11 @@ void back()
 // subOption subOpt1 = subOption("Position",1);
 // subOption subOpt2 = subOption("Active",2);
 int subOptionCount = 3;
-info activeInfo = info(true, 0, 1);
-info fullWidthInfo = info(true, 1, 1);
-info positionInfo = info(false);
 
 subOption subOptions[] = {
-  subOption("Active", &activeInfo),
-  subOption("FullWidth", &fullWidthInfo),
-  subOption("Position", &positionInfo),
+  subOption("Active", {true, 0, info::subOptionType::Type_Bool}),
+  subOption("FullWidth", {true, 1, info::subOptionType::Type_Bool}),
+  subOption("Position", {true, 2, info::subOptionType::Type_Int}),
 };
 int noOptionCount = 0;
 subOption noOptions[] = {
@@ -240,13 +233,13 @@ subOption noOptions[] = {
 // };
 
 option options[] = {
-  option("Rpm", 1, emuRpm, noValidation, subOptions,subOptionCount),
-  option("Batt", 5, emuBatt, validationBatt, subOptions, subOptionCount),
-  option("IAT", 10, emuIat, noValidation, subOptions,subOptionCount),
-  option("Oil Temp", 15, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
-  option("Oil Press", 20, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
-  option("CLT", 25, emuCoolantTemp, noValidation, subOptions,subOptionCount),
-  option("AFR", 30, emuAfr, noValidation, subOptions,subOptionCount),
+  option("Rpm", 0, emuRpm, noValidation, subOptions,subOptionCount),
+  option("Batt", 35, emuBatt, validationBatt, subOptions, subOptionCount),
+  option("IAT", 70, emuIat, noValidation, subOptions,subOptionCount),
+  option("Oil Temp", 105, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
+  option("Oil Press", 140, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
+  option("CLT", 175, emuCoolantTemp, noValidation, subOptions,subOptionCount),
+  option("AFR", 200, emuAfr, noValidation, subOptions,subOptionCount),
 };
 
 
@@ -270,7 +263,6 @@ void renderMainScreen() {
   for (int i=0; i < (sizeof(options) / sizeof(options[0])); i++) {
     option item = options[i];
     item.readMemoryData();
-
     bool active = false;
     bool fullWidth = false;
     subOption* subOptions = item.getSubOptions();
@@ -304,9 +296,11 @@ void renderMainScreen() {
         width = SCREEN_WIDTH;
         if ( itemCount % 2 == 0)
         {
-          x = +2;
+          x = 2;
+          y += blockHeight;
+          itemCount++;
         }
-
+        
         itemCount++;
       }
       
@@ -332,7 +326,6 @@ void renderMenu()
   std::sort(std::begin(options), std::end(options), comp);
     for (int i=0; i < (sizeof(options) / sizeof(options[0])); i++) {
     option item = options[i];
-    item.readMemoryData();
 
     int16_t color = 0x52AA;
     if (i == lastEncoderPos)
@@ -383,27 +376,40 @@ void renderSubMenu()
       tft.setTextSize(3);
       subOption subOption = subOptions[i];
       int16_t color = 0x52AA;
-      if (i == lastEncoderPos)
+      int subOptionPos = lastEncoderPos;
+      if (intSuboptionSelected)
       {
-        color = 0x94F2;
+        if (selectedSubOption == i)
+        {
+          color = ST77XX_GREEN;
+        }
+      } else {
+        if (i == lastEncoderPos)
+        {
+          color = 0x94F2;
+        }
       }
+      
+      
       tft.drawRect(2, yOffset + (i*blockHeight), SCREEN_WIDTH - 6, (blockHeight - 2), color);
       tft.setCursor(6, yOffset + 1+(i*blockHeight));
       tft.print(subOption.getName());
-      tft.println();
 
+      tft.setCursor(6, yOffset + 25+(i*blockHeight));
       tft.setTextSize(2);
-      tft.print(subOption.getInfo().type);
-      tft.print("/");
-      tft.print(subOptionType::Type_Bool);
-      tft.print("/");
-      tft.print(subOption.getInfo().type == 1);
-      tft.print(":");
-      if (subOption.getInfo().type == 1)
+      if (subOption.getInfo().type == info::subOptionType::Type_Bool)
       {
-        tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True" : "False");
+        tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True " : "False");
       }
-      tft.println();
+      if (subOption.getInfo().type == info::subOptionType::Type_Int)
+      {
+        if(intSuboptionSelected)
+        {
+          tft.print(lastEncoderPos);
+        } else {
+          tft.print(item.readMemoryDataInt(subOption.getInfo().memoryAddressModifier));
+        }
+      }
     } 
   }
 }
@@ -464,7 +470,20 @@ void IRAM_ATTR readEncoderISR()
     rotaryEncoder.readEncoder_ISR();
 }
 
+
 void click1() {
+  if (intSuboptionSelected)
+  {
+    intSuboptionSelected = false;
+    option item = options[optionSelected];
+    subOption subOption = item.getSubOptions()[selectedSubOption];
+    item.updateMemory(subOption.getInfo().memoryAddressModifier, lastEncoderPos);
+    rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
+    rotaryEncoder.setEncoderValue(selectedSubOption);
+    lastEncoderPos = rotaryEncoder.readEncoder();
+    return;
+  }
+  
   if(menuState == LOW)
   {
     rotaryEncoder.setEncoderValue(0);
@@ -483,10 +502,18 @@ void click1() {
         Serial.print(subOption.getName());
         if ( subOption.getInfo().isUpdateMemory)
         {
-          if (subOption.getInfo().type == subOptionType::Type_Bool)
+          if (subOption.getInfo().type == info::subOptionType::Type_Bool)
           {
             item.updateMemory(subOption.getInfo().memoryAddressModifier, !item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier));
           }
+          if (subOption.getInfo().type == info::subOptionType::Type_Int)
+          {
+            intSuboptionSelected = true;
+            selectedSubOption = lastEncoderPos;
+            rotaryEncoder.setBoundaries(0, 20, false);
+            rotaryEncoder.setEncoderValue(item.readMemoryDataInt(subOption.getInfo().memoryAddressModifier));
+          }
+          
         }
         
       }
@@ -624,6 +651,7 @@ void loop()
       tft.fillScreen(ST77XX_BLACK);
       lastSubMenuState = LOW;
       rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
+      rotaryEncoder.setEncoderValue(optionSelected);
     }
 
     if (!lastMenuState && menuState)

@@ -8,10 +8,10 @@
 class subOption {
   private:
     String itemName;
-    info itemInfo;
 
   public:
-    subOption(String name, const info structInfo);
+    info itemInfo;
+    subOption(String name, struct info structInfo);
     String getName();
     info getInfo();
 };

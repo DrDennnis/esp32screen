@@ -77,8 +77,14 @@ float option::readMemoryDataFloat(int memoryAddresModifier)
 
 void option::readMemoryData()
 {
-  active = EEPROM.readBool(itemMemoryAddress);
-  position = EEPROM.readInt(itemMemoryAddress+1);
+    subOption* subOptions = option::getSubOptions();
+    for (int i=0; i < option::getSubOptionCount(); i++) {
+      subOption subOption = subOptions[i];
+      if (subOption.getName() == "Position")
+      {
+        position = option::readMemoryDataInt(subOption.getInfo().memoryAddressModifier);
+      }
+    }
 }
 
 bool option::isActive()
