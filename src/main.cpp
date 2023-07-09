@@ -103,12 +103,12 @@ void emuBatt()
 
 void emuIat()
 {
-  float value = emu.emu_data.IAT;
+  int8_t value = emu.emu_data.IAT;
   if (value < 10)
   {
     tft.print(0);
   }
-  tft.printf("%.2fC", emu.emu_data.IAT);
+  tft.printf("%dC", value);
 }
 
 void emuOilPresure()
@@ -123,23 +123,23 @@ void emuOilPresure()
 
 void emuOilTemp()
 {
-  float value = emu.emu_data.oilTemperature;
+  uint8_t value = emu.emu_data.oilTemperature;
   if (value < 10)
   {
     tft.print(0);
   }
-  tft.printf("%.2fC", emu.emu_data.oilTemperature);
+  tft.printf("%dC", value);
 }
 
 void emuCoolantTemp()
 {
-  float value = emu.emu_data.CLT;
+  int16_t value = emu.emu_data.CLT;
   if (value < 10)
   {
     tft.print(0);
   }
   
-  tft.printf("%.2fC", emu.emu_data.CLT);
+  tft.printf("%dC", value);
 }
 
 void emuAfr()
