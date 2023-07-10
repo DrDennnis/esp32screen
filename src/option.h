@@ -17,6 +17,7 @@ class option {
 
   public:
     option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, int subOptionCount);
+    option(void);
     int position;
     String getName();
     void getEmuDataT();

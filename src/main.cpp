@@ -103,12 +103,7 @@ void emuBatt()
 
 void emuIat()
 {
-  int8_t value = emu.emu_data.IAT;
-  if (value < 10)
-  {
-    tft.print(0);
-  }
-  tft.printf("%dC", value);
+  tft.printf("%03dC", emu.emu_data.IAT);
 }
 
 void emuOilPresure()
@@ -123,23 +118,12 @@ void emuOilPresure()
 
 void emuOilTemp()
 {
-  uint8_t value = emu.emu_data.oilTemperature;
-  if (value < 10)
-  {
-    tft.print(0);
-  }
-  tft.printf("%dC", value);
+  tft.printf("%03dC", emu.emu_data.oilTemperature);
 }
 
 void emuCoolantTemp()
 {
-  int16_t value = emu.emu_data.CLT;
-  if (value < 10)
-  {
-    tft.print(0);
-  }
-  
-  tft.printf("%dC", value);
+  tft.printf("%03dC", emu.emu_data.CLT);
 }
 
 void emuAfr()
@@ -236,16 +220,23 @@ option options[] = {
   option("Rpm", 0, emuRpm, noValidation, subOptions,subOptionCount),
   option("Batt", 35, emuBatt, validationBatt, subOptions, subOptionCount),
   option("IAT", 70, emuIat, noValidation, subOptions,subOptionCount),
-  option("Oil Temp", 105, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
-  option("Oil Press", 140, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
+  option("OilT", 105, emuOilTemp, validationOilTemp, subOptions,subOptionCount),
+  option("OilP", 140, emuOilPresure, validationOilPresure, subOptions,subOptionCount),
   option("CLT", 175, emuCoolantTemp, noValidation, subOptions,subOptionCount),
   option("AFR", 200, emuAfr, noValidation, subOptions,subOptionCount),
 };
 
 
-bool comp(const option& lhs, const option& rhs)
+bool comp(option& lhs, option& rhs)
 {
+  lhs.readMemoryData();
+  rhs.readMemoryData();
   return lhs.position < rhs.position;
+}
+
+void sortOptions()
+{
+  std::sort(options, options + (sizeof(options) / sizeof(options[0])), comp);
 }
  
 void renderMainScreen() {
@@ -254,12 +245,13 @@ void renderMainScreen() {
   
   tft.setTextSize(3);
   
-  int blockHeight = 50;
   int x = 2;
   int y = 0;
   int itemCount = 0;
+  int blockHeight = 50;
+  int textSizeTitle = 2;
+  int textSizeValue = 3;
 
-  std::sort(std::begin(options), std::end(options), comp);
   for (int i=0; i < (sizeof(options) / sizeof(options[0])); i++) {
     option item = options[i];
     item.readMemoryData();
@@ -302,17 +294,30 @@ void renderMainScreen() {
         }
         
         itemCount++;
+        blockHeight = 50;
+        textSizeTitle = 2;
+        textSizeValue = 4;
+      } else {
+        blockHeight = 50;
+        textSizeTitle = 2;
+        textSizeValue = 3;
       }
       
       item.validate();
       tft.drawRect(x, y, width - 2, (blockHeight - 2), blockColor);
-      tft.setCursor(4 + x, 2 + y);
+      tft.setCursor(4 + x, 2 + y + (blockHeight - 16) - 6);
 
-      tft.setTextSize(2);
+      tft.setTextSize(textSizeTitle);
       tft.setTextColor(blockColor, ST77XX_BLACK);
-      tft.print(item.getName());
-      tft.setCursor(4 + x, 20 + y);
-      tft.setTextSize(3);
+      tft.print(item.getName()); 
+      
+      if (fullWidth)
+      {
+        tft.setCursor(70, 3 + y);
+      } else {
+        tft.setCursor(4 + x, 3 + y);
+      }
+      tft.setTextSize(textSizeValue);
       item.getEmuDataT();
       tft.println();
     }
@@ -323,7 +328,8 @@ void renderMenu()
 {
   tft.setTextSize(3);
   tft.setCursor(0, 10);
-  std::sort(std::begin(options), std::end(options), comp);
+  int len = sizeof(options)/sizeof(options[0]);
+  std::sort(options, options + len, comp);
     for (int i=0; i < (sizeof(options) / sizeof(options[0])); i++) {
     option item = options[i];
 
@@ -354,7 +360,8 @@ void renderMenu()
     tft.setCursor(4, 1+(i*blockHeight));
 
     tft.print(item.getName());
-    tft.println();
+    tft.setCursor((SCREEN_WIDTH - (24*2)) - 2, 1+(i*blockHeight));
+    tft.print(item.getPosition());
   }
 }
 
@@ -432,13 +439,6 @@ void renderDebugInfo()
 {
   tft.setCursor(0, 300);
   tft.setTextSize(2);
-  tft.print("B");
-  tft.print(buttonState);
-  tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
-  tft.print("C");
-  tft.print(lastEncoderPos);
-  tft.print(options[lastEncoderPos].getName());
-  
   if (debugIndicator)
   {
     tft.fillRect(SCREEN_WIDTH-2, SCREEN_HEIGHT-2, 2, 2, ST77XX_WHITE);
@@ -621,7 +621,7 @@ void setup(void) {
   // button1.attachLongPressStart(longPressStart1);
   // button1.attachLongPressStop(longPressStop1);
   // button1.attachDuringLongPress(longPress1);
-    
+  sortOptions();
 }
 
 
@@ -644,6 +644,7 @@ void loop()
     {
       tft.fillScreen(ST77XX_BLACK);
       lastMenuState = LOW;
+      sortOptions();
     }
 
     if (lastSubMenuState && !subMenuState)
@@ -673,19 +674,15 @@ void loop()
 
 
     if (updateScreen) {
-        Serial.println("render updateScreen");
         renderUpdateScreen();
     } else if (menuState) {
       if (subMenuState)
       {
-        Serial.println("render SubMenu");
         renderSubMenu();
       } else {
-        Serial.println("render Menu");
         renderMenu();
       }
     } else {
-        Serial.println("render MainScreen");
       renderMainScreen();
     }
     renderDebugInfo();

@@ -13,6 +13,9 @@ option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), v
   option::readMemoryData();
 }
 
+option::option(void) {
+}
+
 
 // void option::addSubOption(subOption* subOption){
 //   itemSubOptions[sizeof(itemSubOptions) +1 ] = subOption;
