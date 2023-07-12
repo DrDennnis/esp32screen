@@ -1228,14 +1228,29 @@ void setup(void) {
   // button1.attachDuringLongPress(longPress1);
   sortOptions();
   endTime = millis() + bootAnimation;
+  emu_data_t data;
+  data = EEPROM.get(390, data);
+  Serial.println(sizeof(data));
+  Serial.println(data.RPM);
+  Serial.println(data.CLT);
+  Serial.println(data.IAT);
 }
 
+int loopcount = 390;
 void loop()
 {
   unsigned long currentMillis = millis();
   
-  
 	emu.checkEmuSerial();
+	if (loopcount < 512 && Serial1.available())
+	{
+		if(emu.emu_data.RPM > 1000){
+			EEPROM.put(390, emu.emu_data);
+			EEPROM.commit();
+  			loopcount + sizeof(emu.emu_data);
+		}
+	}
+	
   if (updateMode) {
     enableHotspot();
     updateMode = false;
