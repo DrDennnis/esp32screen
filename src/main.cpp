@@ -5,9 +5,11 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_I2CDevice.h>
 #include <Adafruit_ST7789.h>
+#include <Adafruit_NeoPixel.h>
 #include <SPI.h>
 #include "option.h"
 #include "OneButton.h"
+#include <RCSwitch.h>
 
 #ifdef ESP32
 #include <WiFi.h>
@@ -76,6 +78,9 @@ AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, 
 
 // Setup a new OneButton on pin A1.  
 OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
+
+Adafruit_NeoPixel strip(1, RGB_BUILTIN, NEO_GRB + NEO_KHZ800);
+RCSwitch mySwitch = RCSwitch();
 
 // PinButton myButton(ROTARY_ENCODER_BUTTON_PIN, INPUT);
 
@@ -1186,6 +1191,12 @@ void enableHotspot () {
 
 
 void setup(void) {
+  strip.begin();
+  strip.show();
+  strip.setBrightness(20);
+
+  mySwitch.enableReceive(digitalPinToInterrupt(16));
+
   pinMode(ROTARY_ENCODER_A_PIN, INPUT_PULLUP);
   pinMode(ROTARY_ENCODER_B_PIN, INPUT_PULLUP);
   Serial.begin(9600);
@@ -1215,8 +1226,9 @@ void setup(void) {
   rotaryEncoder.disableAcceleration(); //acceleration is now enabled by default - disable if you dont need it
   // rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
 
-  Serial1.begin(19200, SERIAL_8N1, 19, 21); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
-    
+  // Can we make this not stop all code?
+  // Serial1.begin(19200, SERIAL_8N1, 19, 21); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
+
   EEPROM.begin(512);
   
   // pinMode(ROTARY_ENCODER_BUTTON_PIN, INPUT_PULLUP);
@@ -1318,5 +1330,31 @@ void loop()
     previousMillis = currentMillis;
     button1.tick(); 
     rotary_loop();
+  }
+
+// Indicate LED thingies
+strip.setPixelColor(0, 255, 0, 255);
+strip.show();
+delay(250);
+
+strip.setPixelColor(0, 0, 255, 255);
+strip.show();
+delay(250);
+
+strip.setPixelColor(0, 0, 0, 255);
+strip.show();
+delay(250);
+
+  // RF THINGIES
+  if (mySwitch.available()) {
+    Serial.print("Received ");
+    Serial.print( mySwitch.getReceivedValue() );
+    Serial.print(" / ");
+    Serial.print( mySwitch.getReceivedBitlength() );
+    Serial.print("bit ");
+    Serial.print("Protocol: ");
+    Serial.println( mySwitch.getReceivedProtocol() );
+
+    mySwitch.resetAvailable();
   }
 }
