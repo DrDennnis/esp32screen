@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <Preferences.h>
 #include <AiEsp32RotaryEncoder.h>
 #include <EMUSerial.h>
 #include <Adafruit_GFX.h>
@@ -19,9 +20,9 @@
 // SCREEN
 #define TFT_MOSI MOSI
 #define TFT_SCLK SCK
-#define TFT_RST -1 // 13 // Reset pin (could connect to RST pin)
-#define TFT_DC 4   // Data Command control pin
-#define TFT_CS 2   // Chip select control pin
+#define TFT_RST -1
+#define TFT_DC 4
+#define TFT_CS 2
 
 // ROTARY ENCODER
 #define ROTARY_ENCODER_A_PIN 35
@@ -45,10 +46,11 @@ IPAddress subnet(255, 255, 255, 0);
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, -1, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
-OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
+OneButton button(ROTARY_ENCODER_BUTTON_PIN, true, true);
 Adafruit_NeoPixel strip(1, RGB_BUILTIN, NEO_GRB + NEO_KHZ800);
 EMUSerial emu(Serial1);
 AsyncWebServer server(80);
+Preferences preferences;
 
 unsigned long previousScreenMillis = 0;
 unsigned long previousMillis = 0;
@@ -73,9 +75,11 @@ bool updateScreen = LOW;
 unsigned long endTime;
 
 int bootAnimation = 1500;
-
 bool booted = false;
 bool slashHasBeenDrawn = false;
+
+int ledPeriod = 10;
+unsigned long ledTimeNow = 0;
 
 void emuRpm()
 {
@@ -330,7 +334,8 @@ void renderMenu()
     int16_t color = 0x52AA;
     if (i == lastEncoderPos)
     {
-      color = 0x94F2;
+      // a clear indicator of which option we have selected
+      color = ST77XX_BLUE;
     }
 
     bool active = false;
@@ -352,6 +357,7 @@ void renderMenu()
     {
       tft.setTextColor(ST77XX_RED);
     }
+
     int blockHeight = 28;
     tft.drawRect(1, (i * blockHeight), SCREEN_WIDTH - 2, (blockHeight - 2), color);
     tft.setCursor(4, 1 + (i * blockHeight));
@@ -380,7 +386,7 @@ void renderSubMenu()
     {
       tft.setTextSize(3);
       subOption subOption = subOptions[i];
-      int16_t color = 0x52AA;
+      int16_t color = 0x52AA; // greyish
       int subOptionPos = lastEncoderPos;
       if (intSuboptionSelected)
       {
@@ -393,7 +399,8 @@ void renderSubMenu()
       {
         if (i == lastEncoderPos)
         {
-          color = 0x94F2;
+          // a clear indicator of which option we have selected
+          color = ST77XX_BLUE;
         }
       }
 
@@ -424,8 +431,10 @@ void renderSubMenu()
 
 void renderUpdateScreen()
 {
+  tft.setTextColor(ST77XX_WHITE);
   tft.setCursor(0, 10);
   tft.setTextSize(2);
+
   tft.println("Connect to:");
   tft.println(ssid);
   tft.println("With Password:");
@@ -435,36 +444,13 @@ void renderUpdateScreen()
   tft.println();
 }
 
-bool debugIndicator = false;
-
-void renderDebugInfo()
-{
-  tft.setCursor(0, 300);
-  tft.setTextSize(2);
-  if (debugIndicator)
-  {
-    tft.fillRect(SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2, 2, 2, ST77XX_WHITE);
-    debugIndicator = false;
-  }
-  else
-  {
-    tft.fillRect(SCREEN_WIDTH - 2, SCREEN_HEIGHT - 2, 2, 2, ST77XX_RED);
-    debugIndicator = true;
-  }
-}
-
 void rotary_loop()
 {
   lastEncoderPos = rotaryEncoder.readEncoder();
   if (rotaryEncoder.encoderChanged())
   {
-    Serial.print("SCROLLLL : ");
-    Serial.println(rotaryEncoder.readEncoder());
-    // if (rotaryEncoder.readEncoder() < lastEncoderPos)
-    // {
-    // } else {
-    // }
-    lastEncoderPos = rotaryEncoder.readEncoder();
+    Serial.print("Scroll: ");
+    Serial.println(lastEncoderPos);
   }
 }
 
@@ -473,8 +459,10 @@ void IRAM_ATTR readEncoderISR()
   rotaryEncoder.readEncoder_ISR();
 }
 
-void click1()
+void buttonSingleClick()
 {
+  Serial.println("buttonSingleClick");
+
   if (intSuboptionSelected)
   {
     intSuboptionSelected = false;
@@ -506,7 +494,10 @@ void click1()
     if (item.hasSubOption() && item.isInRange(lastEncoderPos + 1))
     {
       subOption subOption = item.getSubOptions()[lastEncoderPos];
-      Serial.print(subOption.getName());
+
+      Serial.print("Suboption change:");
+      Serial.println(subOption.getName());
+
       if (subOption.getInfo().isUpdateMemory)
       {
         if (subOption.getInfo().type == info::subOptionType::Type_Bool)
@@ -523,11 +514,12 @@ void click1()
       }
     }
   }
-} // click1
+}
 
-// This function will be called when the button1 was pressed 2 times in a short timeframe.
-void doubleclick1()
+void buttonDoubleClick()
 {
+  Serial.println("buttonDoubleClick");
+
   if (subMenuState == HIGH)
   {
     subMenuState = LOW;
@@ -538,40 +530,22 @@ void doubleclick1()
   }
   else if (!updateScreen)
   {
-    Serial.println("Wifi should be enabled for updating");
     updateScreen = HIGH;
     updateMode = HIGH;
+
+    Serial.println("Update screen enabled");
     tft.fillScreen(ST77XX_BLACK);
   }
   else if (updateScreen)
   {
     ESP.restart();
   }
-
-} // doubleclick1
-
-// This function will be called once, when the button1 is pressed for a long time.
-void longPressStart1()
-{
-  Serial.println("Button 1 longPress start");
-} // longPressStart1
-
-// This function will be called often, while the button1 is pressed for a long time.
-void longPress1()
-{
-  Serial.println("Button 1 longPress...");
-} // longPress1
-
-// This function will be called once, when the button1 is released after beeing pressed for a long time.
-void longPressStop1()
-{
-  Serial.println("Button 1 longPress stop");
-} // longPressStop1
+}
 
 ICACHE_RAM_ATTR void checkTicks()
 {
   // include all buttons here to be checked
-  button1.tick(); // just call tick() to check the state.
+  button.tick(); // just call tick() to check the state.
 }
 
 void enableHotspot()
@@ -589,64 +563,50 @@ void enableHotspot()
 
 void setup(void)
 {
+  pinMode(ROTARY_ENCODER_A_PIN, INPUT_PULLUP);
+  pinMode(ROTARY_ENCODER_B_PIN, INPUT_PULLUP);
+
+  // USB
+  Serial.begin(115200);
+
+  // EMU
+  Serial1.begin(19200, SERIAL_8N1, EMU_RX, EMU_TX);
+
+  // Onboard led
   strip.begin();
   strip.show();
   strip.setBrightness(20);
 
-  pinMode(ROTARY_ENCODER_A_PIN, INPUT_PULLUP);
-  pinMode(ROTARY_ENCODER_B_PIN, INPUT_PULLUP);
-  Serial.begin(9600);
-
   tft.init(SCREEN_WIDTH, SCREEN_HEIGHT, SPI_MODE2); // Init ST7789 display 135x240 pixel
   tft.setRotation(2);
-  tft.fillScreen(ST77XX_BLACK);
   tft.invertDisplay(true);
+  // fillScreen black to clear instead of a reset as we do not use this pin
+  tft.fillScreen(ST77XX_BLACK);
 
-  // we must initialize rotary encoder
   rotaryEncoder.begin();
   rotaryEncoder.setup(readEncoderISR);
-  // set boundaries and if values should cycle or not
-  // in this example we will set possible values between 0 and 1000;
-  bool circleValues = true;
-  rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), circleValues); // minValue, maxValue, circleValues true|false (when max go to min and vice versa)
+  rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0]) - 1), true);
+  rotaryEncoder.disableAcceleration();
 
-  // encoder.setButtonHeldEnabled(true);
-  // encoder.setDoubleClickEnabled(true);
-  /*Rotary acceleration introduced 25.2.2021.
-   * in case range to select is huge, for example - select a value between 0 and 1000 and we want 785
-   * without accelerateion you need long time to get to that number
-   * Using acceleration, faster you turn, faster will the value raise.
-   * For fine tuning slow down.
-   */
-  rotaryEncoder.disableAcceleration(); // acceleration is now enabled by default - disable if you dont need it
-  // rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
-
-  // Can we make this not stop all code?
-  Serial1.begin(19200, SERIAL_8N1, EMU_RX, EMU_TX); // EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
+  attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_BUTTON_PIN), checkTicks, CHANGE);
+  button.attachClick(buttonSingleClick);
+  button.attachDoubleClick(buttonDoubleClick);
 
   EEPROM.begin(512);
+  preferences.begin("EmuScreen", false);
 
-  // pinMode(ROTARY_ENCODER_BUTTON_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(ROTARY_ENCODER_BUTTON_PIN), checkTicks, CHANGE);
-  button1.attachClick(click1);
-  button1.attachDoubleClick(doubleclick1);
-  // button1.attachLongPressStart(longPressStart1);
-  // button1.attachLongPressStop(longPressStop1);
-  // button1.attachDuringLongPress(longPress1);
   sortOptions();
   endTime = millis() + bootAnimation;
-  emu_data_t data;
-  data = EEPROM.get(390, data);
-  Serial.println(sizeof(data));
-  Serial.println(data.RPM);
-  Serial.println(data.CLT);
-  Serial.println(data.IAT);
 }
 
 int loopcount = 390;
 void loop()
 {
   unsigned long currentMillis = millis();
+
+  rotary_loop();
+  // keep watching the push button, even when no interrupt happens:
+  button.tick();
 
   emu.checkEmuSerial();
   if (loopcount < 512 && Serial1.available())
@@ -656,6 +616,7 @@ void loop()
       EEPROM.put(390, emu.emu_data);
       EEPROM.commit();
       loopcount + sizeof(emu.emu_data);
+      Serial.println("Writing to eeprom");
     }
   }
 
@@ -665,87 +626,61 @@ void loop()
     updateMode = false;
   }
 
-  if (currentMillis - previousScreenMillis >= screenRefreshRate)
+  if (!booted)
   {
-    previousScreenMillis = currentMillis;
+    renderSplashScreen(currentMillis);
+    return;
+  }
 
-    if (!booted)
-    {
-      renderSplashScreen(currentMillis);
-      return;
-    }
+  if (lastMenuState && !menuState)
+  {
+    tft.fillScreen(ST77XX_BLACK);
+    lastMenuState = LOW;
+    sortOptions();
+  }
 
-    if (lastMenuState && !menuState)
-    {
-      tft.fillScreen(ST77XX_BLACK);
-      lastMenuState = LOW;
-      sortOptions();
-    }
+  if (lastSubMenuState && !subMenuState)
+  {
+    tft.fillScreen(ST77XX_BLACK);
+    lastSubMenuState = LOW;
+    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
+    rotaryEncoder.setEncoderValue(optionSelected);
+  }
 
-    if (lastSubMenuState && !subMenuState)
-    {
-      tft.fillScreen(ST77XX_BLACK);
-      lastSubMenuState = LOW;
-      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
-      rotaryEncoder.setEncoderValue(optionSelected);
-    }
+  if (!lastMenuState && menuState)
+  {
+    lastMenuState = HIGH;
+    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
+    tft.fillScreen(ST77XX_BLACK);
+  }
 
-    if (!lastMenuState && menuState)
-    {
-      lastMenuState = HIGH;
-      rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
-      tft.fillScreen(ST77XX_BLACK);
-    }
+  if (!lastSubMenuState && subMenuState)
+  {
+    lastSubMenuState = HIGH;
+    // selected
 
-    if (!lastSubMenuState && subMenuState)
-    {
-      lastSubMenuState = HIGH;
-      // selected
+    option item = options[optionSelected];
+    rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
+    tft.fillScreen(ST77XX_BLACK);
+  }
 
-      option item = options[optionSelected];
-      rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
-      tft.fillScreen(ST77XX_BLACK);
-    }
-
-    if (updateScreen)
+  if (updateScreen)
+  {
+    renderUpdateScreen();
+  }
+  else if (menuState)
+  {
+    if (subMenuState)
     {
-      renderUpdateScreen();
-    }
-    else if (menuState)
-    {
-      if (subMenuState)
-      {
-        renderSubMenu();
-      }
-      else
-      {
-        renderMenu();
-      }
+      renderSubMenu();
     }
     else
     {
-      renderMainScreen();
+      renderMenu();
     }
-    renderDebugInfo();
   }
-
-  if (currentMillis - previousMillis >= debounce)
+  else
   {
-    previousMillis = currentMillis;
-    button1.tick();
-    rotary_loop();
+    renderMainScreen();
   }
-
-  // Indicate LED thingies
-  strip.setPixelColor(0, 255, 0, 255);
-  strip.show();
-  delay(250);
-
-  strip.setPixelColor(0, 0, 255, 255);
-  strip.show();
-  delay(250);
-
-  strip.setPixelColor(0, 0, 0, 255);
-  strip.show();
-  delay(250);
 }
