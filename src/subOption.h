@@ -5,16 +5,16 @@
 #include <Arduino.h>
 #include <info.h>
 
-class subOption {
-  private:
-    String itemName;
+class subOption
+{
+private:
+  String itemName;
 
-  public:
-    info itemInfo;
-    subOption(String name, struct info structInfo);
-    String getName();
-    info getInfo();
+public:
+  info itemInfo;
+  subOption(String name, struct info structInfo);
+  String getName();
+  info getInfo();
 };
-
 
 #endif

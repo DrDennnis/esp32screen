@@ -3,7 +3,8 @@
 #include "option.h"
 #include <EEPROM.h>
 
-option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, int subOptionCount) {
+option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, int subOptionCount)
+{
   itemName = name;
   itemMemoryAddress = memoryAddress;
   itemEmuDataTCallBack = emuDataTCallBack;
@@ -13,31 +14,33 @@ option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), v
   option::readMemoryData();
 }
 
-option::option(void) {
+option::option(void)
+{
 }
-
 
 // void option::addSubOption(subOption* subOption){
 //   itemSubOptions[sizeof(itemSubOptions) +1 ] = subOption;
 // }
 
-bool option::hasSubOption() {
+bool option::hasSubOption()
+{
   return itemSubOptionCount > 0;
 }
 
-bool option::isInRange(int count) {
+bool option::isInRange(int count)
+{
   return itemSubOptionCount >= count;
 }
 
-
-subOption* option::getSubOptions() {
+subOption *option::getSubOptions()
+{
   return itemSubOptions;
 }
 
-int option::getSubOptionCount() {
+int option::getSubOptionCount()
+{
   return itemSubOptionCount;
 }
-
 
 void option::updateMemory(int memoryAddresModifier, bool value)
 {
@@ -80,14 +83,15 @@ float option::readMemoryDataFloat(int memoryAddresModifier)
 
 void option::readMemoryData()
 {
-    subOption* subOptions = option::getSubOptions();
-    for (int i=0; i < option::getSubOptionCount(); i++) {
-      subOption subOption = subOptions[i];
-      if (subOption.getName() == "Position")
-      {
-        position = option::readMemoryDataInt(subOption.getInfo().memoryAddressModifier);
-      }
+  subOption *subOptions = option::getSubOptions();
+  for (int i = 0; i < option::getSubOptionCount(); i++)
+  {
+    subOption subOption = subOptions[i];
+    if (subOption.getName() == "Position")
+    {
+      position = option::readMemoryDataInt(subOption.getInfo().memoryAddressModifier);
     }
+  }
 }
 
 bool option::isActive()

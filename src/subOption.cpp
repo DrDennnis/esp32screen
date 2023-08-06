@@ -2,7 +2,8 @@
 
 #include "subOption.h"
 
-subOption::subOption(String name, info structInfo) {
+subOption::subOption(String name, info structInfo)
+{
   itemName = name;
   itemInfo = structInfo;
 }
