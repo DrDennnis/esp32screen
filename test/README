@@ -9,11 +9,14 @@ in the development cycle.
 
 More information about PlatformIO Unit Testing:
 - https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+SCREEN - NODEMCU - s3 mini
+GND    - GND     - GND
+VCC    - 3.3     - 3.3
+SCL    - D18     - 12 (SCK)
+SDA    - D23     - 11 (MOSI)
+RST    - D4      - -1 (not used)
+DC     - D2      - 4
+CS     - D15     - 2
 
-GND - GND
-VCC - 3.3
-SCL - D18
-SDA - D23
-RST - D4
-DC  - D2
-CS  - D15
+// volgorde onder het scherm
+// gnd vss scl sda rst dc cs
