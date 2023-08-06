@@ -10,27 +10,20 @@
 #include "option.h"
 #include "OneButton.h"
 #include <RCSwitch.h>
-
-#ifdef ESP32
 #include <WiFi.h>
 #include <AsyncTCP.h>
-#elif defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
-#endif
 #include <ESPmDNS.h>
-
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
 //
 
 
 // SCREEN
-#define TFT_MOSI 23  // SDA Pin on ESP32
-#define TFT_SCLK 18  // SCL Pin on ESP32
-#define TFT_CS   15  // Chip select control pin
-#define TFT_DC    2  // Data Command control pin
-#define TFT_RST   4  // Reset pin (could connect to RST pin)
+#define TFT_MOSI  11 // SCL
+#define TFT_SCLK  12 // SCA
+#define TFT_RST   -1 //13 // Reset pin (could connect to RST pin)
+#define TFT_DC    4 // Data Command control pin
+#define TFT_CS    2 // Chip select control pin
 
 //ROTARY  ENCODER
 #define ROTARY_ENCODER_A_PIN 14
