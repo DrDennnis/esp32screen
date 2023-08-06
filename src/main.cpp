@@ -15,26 +15,42 @@
 #include <ESPmDNS.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
-//
 
 
 // SCREEN
-#define TFT_MOSI  11 // SCL
-#define TFT_SCLK  12 // SCA
+#define TFT_MOSI  MOSI
+#define TFT_SCLK  SCK
 #define TFT_RST   -1 //13 // Reset pin (could connect to RST pin)
 #define TFT_DC    4 // Data Command control pin
 #define TFT_CS    2 // Chip select control pin
 
-//ROTARY  ENCODER
+//ROTARY ENCODER
 #define ROTARY_ENCODER_A_PIN 35
 #define ROTARY_ENCODER_B_PIN 18
 #define ROTARY_ENCODER_BUTTON_PIN 16
 #define ROTARY_ENCODER_VCC_PIN -1
 #define ROTARY_ENCODER_STEPS 4
 
+// EMU
+#define EMU_RX RX
+#define EMU_TX TX
 
 uint16_t SCREEN_WIDTH = 240;
 uint16_t SCREEN_HEIGHT = 320;
+
+const char* ssid = "EmuScreen";
+const char* password = "12345678";
+IPAddress local_ip(192,168,1,1);
+IPAddress gateway(192,168,1,1);
+IPAddress subnet(255,255,255,0);
+
+Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
+AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, -1, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
+OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
+Adafruit_NeoPixel strip(1, RGB_BUILTIN, NEO_GRB + NEO_KHZ800);
+RCSwitch mySwitch = RCSwitch();
+EMUSerial emu(Serial1);
+AsyncWebServer server(80);
 
 unsigned long previousScreenMillis = 0;
 unsigned long previousMillis = 0;
@@ -54,37 +70,9 @@ int blockColor = ST77XX_WHITE;
 bool intSuboptionSelected = false;
 int selectedSubOption = 0;
 
-
-const char* ssid = "EmuScreen";
-const char* password = "12345678";
-IPAddress local_ip(192,168,1,1);
-IPAddress gateway(192,168,1,1);
-IPAddress subnet(255,255,255,0);
-
-
-// Initialize Adafruit ST7789 TFT library
-Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
-
-// Initialize AiEsp32RotaryEncoder Library
-AiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ROTARY_ENCODER_A_PIN, ROTARY_ENCODER_B_PIN, -1, ROTARY_ENCODER_VCC_PIN, ROTARY_ENCODER_STEPS);
-
-
-// Setup a new OneButton on pin A1.  
-OneButton button1(ROTARY_ENCODER_BUTTON_PIN, true);
-
-Adafruit_NeoPixel strip(1, RGB_BUILTIN, NEO_GRB + NEO_KHZ800);
-RCSwitch mySwitch = RCSwitch();
-
-// PinButton myButton(ROTARY_ENCODER_BUTTON_PIN, INPUT);
-
-EMUSerial emu(Serial1);
-
-AsyncWebServer server(80);
-
 bool updateMode = LOW;
 bool updateScreen = LOW;
 unsigned long endTime;
-
 
 int bootAnimation = 1500;
 const unsigned char epd_bitmap_Bitmap [] PROGMEM = {
@@ -1220,7 +1208,7 @@ void setup(void) {
   // rotaryEncoder.setAcceleration(0); //or set the value - larger number = more accelearation; 0 or 1 means disabled acceleration
 
   // Can we make this not stop all code?
-  // Serial1.begin(19200, SERIAL_8N1, 19, 21); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
+  Serial1.begin(19200, SERIAL_8N1, EMU_RX, EMU_TX); //EMU Serial setup, 8 Data Bits 1 Stopbit, RX Pin, TX Pin
 
   EEPROM.begin(512);
   
