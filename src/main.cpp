@@ -52,15 +52,9 @@ EMUSerial emu(Serial1);
 AsyncWebServer server(80);
 Preferences preferences;
 
-unsigned long previousScreenMillis = 0;
-unsigned long previousMillis = 0;
-const long screenRefreshRate = 12; // screen refresh rate
-const long debounce = 10;
-
 int lastEncoderPos = 0;
 int optionSelected = 0;
 static unsigned long lastTimePressed = 0; // Soft debouncing
-int buttonState = LOW;
 int lastMenuState = LOW;
 int menuState = LOW;
 int lastSubMenuState = LOW;
@@ -77,9 +71,6 @@ unsigned long endTime;
 int bootAnimation = 1500;
 bool booted = false;
 bool slashHasBeenDrawn = false;
-
-int ledPeriod = 10;
-unsigned long ledTimeNow = 0;
 
 void emuRpm()
 {
