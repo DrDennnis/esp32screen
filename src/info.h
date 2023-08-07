@@ -29,10 +29,10 @@ struct info
         Type_String = 3,
     };
     bool isUpdateMemory;
-    int memoryAddressModifier;
+    char* name;
     subOptionType type;
 
-    info(bool updateMemory, int addressModifier, const subOptionType &optionType) : isUpdateMemory(updateMemory), memoryAddressModifier(addressModifier), type(optionType) {}
+    info(bool updateMemory, const subOptionType &optionType) : isUpdateMemory(updateMemory), type(optionType) {}
     info(bool updateMemory) : isUpdateMemory(updateMemory) {}
     info() {}
 };

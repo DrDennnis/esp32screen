@@ -50,7 +50,6 @@ OneButton button(ROTARY_ENCODER_BUTTON_PIN, true, true);
 Adafruit_NeoPixel strip(1, RGB_BUILTIN, NEO_GRB + NEO_KHZ800);
 EMUSerial emu(Serial1);
 AsyncWebServer server(80);
-Preferences preferences;
 
 int lastEncoderPos = 0;
 int optionSelected = 0;
@@ -68,7 +67,7 @@ bool updateMode = LOW;
 bool updateScreen = LOW;
 unsigned long endTime;
 
-int bootAnimation = 1500;
+int bootAnimation = 1000;
 bool booted = false;
 bool slashHasBeenDrawn = false;
 
@@ -165,9 +164,9 @@ void validationOilPresure()
 int subOptionCount = 3;
 
 subOption subOptions[] = {
-    subOption("Active", {true, 0, info::subOptionType::Type_Bool}),
-    subOption("FullWidth", {true, 1, info::subOptionType::Type_Bool}),
-    subOption("Position", {true, 2, info::subOptionType::Type_Int}),
+    subOption("Active", {true, info::subOptionType::Type_Bool}),
+    subOption("FullWidth", {true, info::subOptionType::Type_Bool}),
+    subOption("Position", {true, info::subOptionType::Type_Int}),
 };
 int noOptionCount = 0;
 subOption noOptions[] = {};
@@ -246,11 +245,11 @@ void renderMainScreen()
       subOption subOption = subOptions[i];
       if (subOption.getName() == "Active")
       {
-        active = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+        active = item.readMemoryDataBool(subOption.getName());
       }
       if (subOption.getName() == "FullWidth")
       {
-        fullWidth = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+        fullWidth = item.readMemoryDataBool(subOption.getName());
       }
     }
     if (active)
@@ -336,7 +335,7 @@ void renderMenu()
       subOption subOption = subOptions[i];
       if (subOption.getName() == "Active")
       {
-        active = item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier);
+        active = item.readMemoryDataBool(subOption.getName());
       }
     }
 
@@ -354,7 +353,7 @@ void renderMenu()
     tft.setCursor(4, 1 + (i * blockHeight));
 
     tft.print(item.getName());
-    tft.setCursor((SCREEN_WIDTH - (24 * 2)) - 2, 1 + (i * blockHeight));
+    tft.setCursor((SCREEN_WIDTH - (18 * 3)) - 2, 1 + (i * blockHeight));
     tft.printf("%03d", item.getPosition());
   }
 }
@@ -403,7 +402,7 @@ void renderSubMenu()
       tft.setTextSize(2);
       if (subOption.getInfo().type == info::subOptionType::Type_Bool)
       {
-        tft.print(item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier) ? "True " : "False");
+        tft.print(item.readMemoryDataBool(subOption.getName()) ? "True " : "False");
       }
       if (subOption.getInfo().type == info::subOptionType::Type_Int)
       {
@@ -413,7 +412,7 @@ void renderSubMenu()
         }
         else
         {
-          tft.printf("%03d", item.readMemoryDataInt(subOption.getInfo().memoryAddressModifier));
+          tft.printf("%03d", item.readMemoryDataInt(subOption.getName()));
         }
       }
     }
@@ -459,7 +458,7 @@ void buttonSingleClick()
     intSuboptionSelected = false;
     option item = options[optionSelected];
     subOption subOption = item.getSubOptions()[selectedSubOption];
-    item.updateMemory(subOption.getInfo().memoryAddressModifier, lastEncoderPos);
+    item.updateMemory(subOption.getName(), lastEncoderPos);
     rotaryEncoder.setBoundaries(0, item.getSubOptionCount() - 1, false);
     rotaryEncoder.setEncoderValue(selectedSubOption);
     lastEncoderPos = rotaryEncoder.readEncoder();
@@ -493,14 +492,14 @@ void buttonSingleClick()
       {
         if (subOption.getInfo().type == info::subOptionType::Type_Bool)
         {
-          item.updateMemory(subOption.getInfo().memoryAddressModifier, !item.readMemoryDataBool(subOption.getInfo().memoryAddressModifier));
+          item.updateMemory(subOption.getName(), !item.readMemoryDataBool(subOption.getName()));
         }
         if (subOption.getInfo().type == info::subOptionType::Type_Int)
         {
           intSuboptionSelected = true;
           selectedSubOption = lastEncoderPos;
           rotaryEncoder.setBoundaries(0, 255, true);
-          rotaryEncoder.setEncoderValue(item.readMemoryDataInt(subOption.getInfo().memoryAddressModifier));
+          rotaryEncoder.setEncoderValue(item.readMemoryDataInt(subOption.getName()));
         }
       }
     }
@@ -584,10 +583,34 @@ void setup(void)
   button.attachDoubleClick(buttonDoubleClick);
 
   EEPROM.begin(512);
-  preferences.begin("EmuScreen", false);
-
   sortOptions();
   endTime = millis() + bootAnimation;
+  
+  // preferences.begin("AFR", false);
+  // Serial.print("AFR ");
+  // Serial.print(" | Active: ");
+  // Serial.print(preferences.getBool("Active"));
+  // Serial.print(" | Position: ");
+  // Serial.print(preferences.getInt("Position"));
+  // Serial.print(" | Position: ");
+  // Serial.print(preferences.getBool("FullWidth"));
+  // Serial.print(" | freeEntries: ");
+  // Serial.print(preferences.freeEntries());
+  // Serial.println("");
+  // preferences.end();
+  
+  // preferences.begin("OilP", false);
+  // Serial.print("OilP ");
+  // Serial.print(" | Active: ");
+  // Serial.print(preferences.getBool("Active"));
+  // Serial.print(" | Position: ");
+  // Serial.print(preferences.getInt("Position"));
+  // Serial.print(" | Position: ");
+  // Serial.print(preferences.getBool("FullWidth"));
+  // Serial.print(" | freeEntries: ");
+  // Serial.print(preferences.freeEntries());
+  // Serial.println("");
+  // preferences.end();
 }
 
 int loopcount = 390;
@@ -634,14 +657,15 @@ void loop()
   {
     tft.fillScreen(ST77XX_BLACK);
     lastSubMenuState = LOW;
-    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
+    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])) -1, true);
     rotaryEncoder.setEncoderValue(optionSelected);
+    sortOptions();
   }
 
   if (!lastMenuState && menuState)
   {
     lastMenuState = HIGH;
-    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])), true);
+    rotaryEncoder.setBoundaries(0, (sizeof(options) / sizeof(options[0])) -1, true);
     tft.fillScreen(ST77XX_BLACK);
   }
 

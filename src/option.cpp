@@ -2,6 +2,9 @@
 
 #include "option.h"
 #include <EEPROM.h>
+#include <Preferences.h>
+
+Preferences preferences;
 
 option::option(String name, int memoryAddress, void (*emuDataTCallBack)(void), void (*validateCallBack)(void), subOption *subOptions, int subOptionCount)
 {
@@ -42,43 +45,123 @@ int option::getSubOptionCount()
   return itemSubOptionCount;
 }
 
-void option::updateMemory(int memoryAddresModifier, bool value)
+void option::updateMemory(String name, bool value)
 {
-  EEPROM.writeBool(itemMemoryAddress + memoryAddresModifier, value);
-  EEPROM.commit();
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, false);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  preferences.putBool(char_array, value);
+
+  // EEPROM.writeBool(itemMemoryAddress + memoryAddresModifier, value);
+  // EEPROM.commit();
+  
+  preferences.putBool("Value", value);
+  preferences.end();
 }
 
-void option::updateMemory(int memoryAddresModifier, int value)
+void option::updateMemory(String name, int value)
 {
-  EEPROM.writeInt(itemMemoryAddress + memoryAddresModifier, value);
-  EEPROM.commit();
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, false);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  preferences.putInt(char_array, value);
+  preferences.end();
+  // EEPROM.writeInt(itemMemoryAddress + memoryAddresModifier, value);
+  // EEPROM.commit();
 }
 
-void option::updateMemory(int memoryAddresModifier, String value)
+void option::updateMemory(String name, String value)
 {
-  EEPROM.writeString(itemMemoryAddress + memoryAddresModifier, value);
-  EEPROM.commit();
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, false);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  preferences.putString(char_array, value);
+  preferences.end();
+  // EEPROM.writeString(itemMemoryAddress + memoryAddresModifier, value);
+  // EEPROM.commit();
 }
 
-void option::updateMemory(int memoryAddresModifier, float value)
+void option::updateMemory(String name, float value)
 {
-  EEPROM.writeFloat(itemMemoryAddress + memoryAddresModifier, value);
-  EEPROM.commit();
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, false);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  preferences.putFloat(char_array, value);
+  preferences.end();
+  // EEPROM.writeFloat(itemMemoryAddress + memoryAddresModifier, value);
+  // EEPROM.commit();
 }
 
-bool option::readMemoryDataBool(int memoryAddresModifier)
+bool option::readMemoryDataBool(String name)
 {
-  return EEPROM.readBool(itemMemoryAddress + memoryAddresModifier);
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, true);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  return preferences.getBool(char_array);
+  preferences.end();
+  // return EEPROM.readBool(itemMemoryAddress + memoryAddresModifier);
 }
 
-int option::readMemoryDataInt(int memoryAddresModifier)
+int option::readMemoryDataInt(String name)
 {
-  return EEPROM.readInt(itemMemoryAddress + memoryAddresModifier);
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, true);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  return preferences.getInt(char_array);
+  preferences.end();
+  // return preferences.putInt(itemMemoryAddress + memoryAddresModifier);
 }
 
-float option::readMemoryDataFloat(int memoryAddresModifier)
+float option::readMemoryDataFloat(String name)
 {
-  return EEPROM.readFloat(itemMemoryAddress + memoryAddresModifier);
+  
+  int itemNamestr_len = itemName.length() + 1; 
+  char itemNameChar_array[itemNamestr_len];
+  itemName.toCharArray(itemNameChar_array, itemNamestr_len);
+  preferences.begin(itemNameChar_array, true);// option namespace
+
+  int str_len = name.length() + 1; 
+  char char_array[str_len];
+  name.toCharArray(char_array, str_len);
+  return preferences.getFloat(char_array);
+  preferences.end();
+  // return EEPROM.readFloat(itemMemoryAddress + memoryAddresModifier);
 }
 
 void option::readMemoryData()
@@ -89,7 +172,7 @@ void option::readMemoryData()
     subOption subOption = subOptions[i];
     if (subOption.getName() == "Position")
     {
-      position = option::readMemoryDataInt(subOption.getInfo().memoryAddressModifier);
+      position = option::readMemoryDataInt(subOption.getName());
     }
   }
 }

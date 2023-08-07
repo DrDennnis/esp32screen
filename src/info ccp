@@ -1,0 +1,16 @@
+
+#include "info.h"
+
+
+info::info(bool updateMemory, int addressModifier, subOptionType optionType) {
+    isUpdateMemory = updateMemory;
+    memoryAddressModifier = addressModifier;
+    type = optionType;
+}
+
+info::info(bool updateMemory) {
+    isUpdateMemory = updateMemory;
+}
+
+info::info() {
+}

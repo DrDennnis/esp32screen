@@ -4,6 +4,7 @@
 
 #include <Arduino.h>
 #include "subOption.h"
+#include <Preferences.h>
 
 class option
 {
@@ -33,13 +34,13 @@ public:
   bool isInRange(int i);
   subOption *getSubOptions();
   int getSubOptionCount();
-  void updateMemory(int memoryAddresModifier, bool value);
-  void updateMemory(int memoryAddresModifier, int value);
-  void updateMemory(int memoryAddresModifier, String value);
-  void updateMemory(int memoryAddresModifier, float value);
-  bool readMemoryDataBool(int memoryAddresModifier);
-  int readMemoryDataInt(int memoryAddresModifier);
-  float readMemoryDataFloat(int memoryAddresModifier);
+  void updateMemory(String name, bool value);
+  void updateMemory(String name, int value);
+  void updateMemory(String name, String value);
+  void updateMemory(String name, float value);
+  bool readMemoryDataBool(String name);
+  int readMemoryDataInt(String name);
+  float readMemoryDataFloat(String name);
 };
 
 #endif
