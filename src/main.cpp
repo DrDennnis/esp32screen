@@ -16,6 +16,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
 #include <bootscreen.h>
+#include <webpage.h>
 
 // SCREEN
 #define TFT_MOSI MOSI
@@ -539,13 +540,21 @@ ICACHE_RAM_ATTR void checkTicks()
   button.tick(); // just call tick() to check the state.
 }
 
+String processor(const String& var)
+{
+  if(var == "HAHA_TEST")
+    return F("VAR TEST SUCCESS");
+  return String();
+}
+
 void enableHotspot()
 {
   WiFi.softAPConfig(local_ip, gateway, subnet);
   WiFi.softAP(ssid, password);
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->redirect("/update"); });
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send_P(200, "text/html", index_html, processor);
+  });
 
   AsyncElegantOTA.begin(&server); // Start ElegantOTA
   server.begin();
