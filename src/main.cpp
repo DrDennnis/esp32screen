@@ -70,11 +70,75 @@ unsigned long endTime;
 
 int bootAnimation = 1500;
 bool booted = false;
-bool slashHasBeenDrawn = false;
+bool splashHasBeenDrawn = false;
+
+int logCount = 0;
+int maxLogCount = 1000;
+emu_data_t emuLogData[1000]; // cant be difined with a variable
+
+bool isEmuStructSame(emu_data_t a, emu_data_t b)
+{
+  if (
+    a.RPM == b.RPM &&
+    a.MAP == b.MAP &&
+    a.TPS == b.TPS &&
+    a.IAT == b.IAT &&
+    a.Batt == b.Batt &&
+    a.IgnAngle == b.IgnAngle &&
+    a.wboAFR == b.wboAFR &&
+    a.gear == b.gear &&
+    a.oilPressure == b.oilPressure &&
+    a.oilTemperature == b.oilTemperature &&
+    a.CLT == b.CLT &&
+    a.wboLambda == b.wboLambda &&
+    a.vssSpeed == b.vssSpeed &&
+    a.deltaFPR == b.deltaFPR &&
+    a.lambdaTarget == b.lambdaTarget &&
+    a.afrTarget == b.afrTarget
+  )
+  {
+    return true;
+  }
+  
+    return false;
+}
+
+void logArray()
+{
+  if (isEmuStructSame(emu.emu_data, emuLogData[logCount]))
+  {
+    return;
+  }
+  
+  if (logCount == maxLogCount)
+  {
+    logCount = 0;
+  } else {
+    logCount++;
+  }
+  emuLogData[logCount] = emu.emu_data;
+}
+
+double averageOilPressure()
+{
+    // Find sum of array element
+    int sum = 0;
+    for (int i = 0; i < (sizeof(emuLogData)/sizeof(emuLogData[0])); i++)
+    {
+        sum += emuLogData[i].oilPressure;
+    }
+ 
+    return (double)sum / (sizeof(emuLogData)/sizeof(emuLogData[0]));
+}
 
 void emuRpm()
 {
   tft.printf("%04d", emu.emu_data.RPM);
+}
+
+void emuVssSpeed()
+{
+  tft.printf("%03d", emu.emu_data.vssSpeed);
 }
 
 void emuBatt()
@@ -155,7 +219,8 @@ void validationOilTemp()
 
 void validationOilPresure()
 {
-  if (emu.emu_data.oilPressure < 2.0)
+  // if (emu.emu_data.oilPressure < (emu.emu_data.RPM / 1000 * 0.6))
+  if(averageOilPressure() < emu.emu_data.oilPressure)
   {
     tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
     blockColor = ST77XX_RED;
@@ -180,6 +245,11 @@ option options[] = {
     option("CLT", 200, emuCoolantTemp, noValidation, subOptions, subOptionCount),
     option("Batt", 250, emuBatt, validationBatt, subOptions, subOptionCount),
     option("Rpm", 300, emuRpm, noValidation, subOptions, subOptionCount),
+    option("KMH", 350, emuVssSpeed, noValidation, subOptions, subOptionCount),
+    // option("LF", 450, noValidation, noValidation, subOptions, subOptionCount),
+    // option("RF", 500, noValidation, noValidation, subOptions, subOptionCount),
+    // option("LR", 550, noValidation, noValidation, subOptions, subOptionCount),
+    // option("RR", 600, noValidation, noValidation, subOptions, subOptionCount),
 };
 
 bool comp(option &lhs, option &rhs)
@@ -206,10 +276,10 @@ void drawPercentbar(int x, int y, int width, int height, int progress)
 
 void renderSplashScreen(unsigned long currentMillis)
 {
-  if (!slashHasBeenDrawn)
+  if (!splashHasBeenDrawn)
   {
     tft.drawBitmap(0, 0, epd_bitmap_Bitmap, SCREEN_WIDTH, SCREEN_HEIGHT, ST77XX_WHITE);
-    slashHasBeenDrawn = true;
+    splashHasBeenDrawn = true;
   }
   int timeRemaning = endTime - currentMillis;
   drawPercentbar(0, (SCREEN_HEIGHT - 30), SCREEN_WIDTH, 30, ((bootAnimation - timeRemaning) * 100) / bootAnimation);
@@ -452,8 +522,6 @@ void IRAM_ATTR readEncoderISR()
 
 void buttonSingleClick()
 {
-  Serial.println("buttonSingleClick");
-
   if (intSuboptionSelected)
   {
     intSuboptionSelected = false;
@@ -486,9 +554,6 @@ void buttonSingleClick()
     {
       subOption subOption = item.getSubOptions()[lastEncoderPos];
 
-      Serial.print("Suboption change:");
-      Serial.println(subOption.getName());
-
       if (subOption.getInfo().isUpdateMemory)
       {
         if (subOption.getInfo().type == info::subOptionType::Type_Bool)
@@ -509,7 +574,6 @@ void buttonSingleClick()
 
 void buttonDoubleClick()
 {
-  Serial.println("buttonDoubleClick");
 
   if (subMenuState == HIGH)
   {
@@ -524,7 +588,6 @@ void buttonDoubleClick()
     updateScreen = HIGH;
     updateMode = HIGH;
 
-    Serial.println("Update screen enabled");
     tft.fillScreen(ST77XX_BLACK);
   }
   else if (updateScreen)
@@ -583,7 +646,7 @@ void setup(void)
   button.attachClick(buttonSingleClick);
   button.attachDoubleClick(buttonDoubleClick);
 
-  EEPROM.begin(512);
+  EEPROM.begin(1024);
   preferences.begin("EmuScreen", false);
 
   sortOptions();
@@ -600,16 +663,7 @@ void loop()
   button.tick();
 
   emu.checkEmuSerial();
-  if (loopcount < 512 && Serial1.available())
-  {
-    if (emu.emu_data.RPM > 1000)
-    {
-      EEPROM.put(390, emu.emu_data);
-      EEPROM.commit();
-      loopcount + sizeof(emu.emu_data);
-      Serial.println("Writing to eeprom");
-    }
-  }
+  logArray();
 
   if (updateMode)
   {
