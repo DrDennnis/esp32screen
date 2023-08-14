@@ -16,6 +16,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncElegantOTA.h>
 #include <bootscreen.h>
+#include <emuLogStruct.h>
 
 // SCREEN
 #define TFT_MOSI MOSI
@@ -73,28 +74,14 @@ bool booted = false;
 bool splashHasBeenDrawn = false;
 
 int logCount = 0;
-int maxLogCount = 1000;
-emu_data_t emuLogData[1000]; // cant be difined with a variable
+int maxLogCount = 500;
+emu_log_data_t emuLogData[500]; // cant be difined with a variable
 
-bool isEmuStructSame(emu_data_t a, emu_data_t b)
+bool isEmuStructSame(emu_log_data_t a, emu_log_data_t b)
 {
   if (
-    a.RPM == b.RPM &&
-    a.MAP == b.MAP &&
-    a.TPS == b.TPS &&
-    a.IAT == b.IAT &&
-    a.Batt == b.Batt &&
-    a.IgnAngle == b.IgnAngle &&
-    a.wboAFR == b.wboAFR &&
-    a.gear == b.gear &&
     a.oilPressure == b.oilPressure &&
-    a.oilTemperature == b.oilTemperature &&
-    a.CLT == b.CLT &&
-    a.wboLambda == b.wboLambda &&
-    a.vssSpeed == b.vssSpeed &&
-    a.deltaFPR == b.deltaFPR &&
-    a.lambdaTarget == b.lambdaTarget &&
-    a.afrTarget == b.afrTarget
+    a.oilTemperature == b.oilTemperature
   )
   {
     return true;
@@ -105,7 +92,11 @@ bool isEmuStructSame(emu_data_t a, emu_data_t b)
 
 void logArray()
 {
-  if (isEmuStructSame(emu.emu_data, emuLogData[logCount]))
+  emu_log_data_t logData;
+  logData.oilPressure = emu.emu_data.oilPressure;
+  logData.oilTemperature = emu.emu_data.oilTemperature;
+  
+  if (isEmuStructSame(logData, emuLogData[logCount]))
   {
     return;
   }
@@ -113,10 +104,11 @@ void logArray()
   if (logCount == maxLogCount)
   {
     logCount = 0;
-  } else {
-    logCount++;
   }
-  emuLogData[logCount] = emu.emu_data;
+
+  emuLogData[logCount] = logData;
+  
+  logCount++;
 }
 
 double averageOilPressure()
