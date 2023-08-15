@@ -212,7 +212,7 @@ void validationOilTemp()
 void validationOilPresure()
 {
   // if (emu.emu_data.oilPressure < (emu.emu_data.RPM / 1000 * 0.6))
-  if(averageOilPressure() < emu.emu_data.oilPressure)
+  if(averageOilPressure() > emu.emu_data.oilPressure)
   {
     tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
     blockColor = ST77XX_RED;
