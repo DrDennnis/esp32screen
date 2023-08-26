@@ -74,8 +74,8 @@ bool booted = false;
 bool splashHasBeenDrawn = false;
 
 int logCount = 0;
-int maxLogCount = 500;
-emu_log_data_t emuLogData[500]; // cant be difined with a variable
+int maxLogCount = 1000;
+emu_log_data_t emuLogData[1000]; // cant be difined with a variable
 
 bool isEmuStructSame(emu_log_data_t a, emu_log_data_t b)
 {
@@ -130,7 +130,7 @@ void emuRpm()
 
 void emuVssSpeed()
 {
-  tft.printf("%03d", emu.emu_data.vssSpeed);
+  tft.printf("%03d", (int)emu.emu_data.vssSpeed);
 }
 
 void emuBatt()
@@ -212,7 +212,7 @@ void validationOilTemp()
 void validationOilPresure()
 {
   // if (emu.emu_data.oilPressure < (emu.emu_data.RPM / 1000 * 0.6))
-  if(averageOilPressure() > emu.emu_data.oilPressure)
+  if(emu.emu_data.oilPressure < averageOilPressure())
   {
     tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
     blockColor = ST77XX_RED;
