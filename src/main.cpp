@@ -179,42 +179,65 @@ void emuAfr()
   tft.printf("%.2f", emu.emu_data.wboAFR);
 }
 
+void validationAfr()
+{
+  if (emu.emu_data.afrTarget < emu.emu_data.wboAFR)
+  {
+    blockColor = ST77XX_ORANGE;
+  }
+
+  if (emu.emu_data.afrTarget == emu.emu_data.wboAFR)
+  {
+    blockColor = ST77XX_WHITE;
+  }
+
+  if (emu.emu_data.afrTarget > emu.emu_data.wboAFR)
+  {
+    blockColor = ST77XX_ORANGE;
+  }
+}
+
 void noValidation()
 {
-  tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK);
   blockColor = ST77XX_WHITE;
 }
 
 void validationBatt()
 {
+  noValidation();
+
+  if (emu.emu_data.Batt < 9.0)
+  {
+    blockColor = ST77XX_RED;
+  }
+
   if (emu.emu_data.Batt < 11.0)
   {
-    tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
-    blockColor = ST77XX_RED;
+    blockColor = ST77XX_ORANGE;
   }
 }
 
 void validationOilTemp()
 {
-  if (emu.emu_data.oilTemperature < 80)
+  noValidation();
+
+  if (emu.emu_data.oilTemperature > 90)
   {
-    tft.setTextColor(ST77XX_ORANGE, ST77XX_BLACK);
     blockColor = ST77XX_ORANGE;
   }
 
-  if (emu.emu_data.oilTemperature > 120)
+  if (emu.emu_data.oilTemperature > 130)
   {
-    tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
     blockColor = ST77XX_RED;
   }
 }
 
 void validationOilPresure()
 {
-  // if (emu.emu_data.oilPressure < (emu.emu_data.RPM / 1000 * 0.6))
+  noValidation();
+
   if(emu.emu_data.oilPressure < averageOilPressure())
   {
-    tft.setTextColor(ST77XX_RED, ST77XX_BLACK);
     blockColor = ST77XX_RED;
   }
 }
@@ -230,7 +253,7 @@ int noOptionCount = 0;
 subOption noOptions[] = {};
 
 option options[] = {
-    option("AFR", 0, emuAfr, noValidation, subOptions, subOptionCount),
+    option("AFR", 0, emuAfr, validationAfr, subOptions, subOptionCount),
     option("OilP", 50, emuOilPresure, validationOilPresure, subOptions, subOptionCount),
     option("OilT", 100, emuOilTemp, validationOilTemp, subOptions, subOptionCount),
     option("IAT", 150, emuIat, noValidation, subOptions, subOptionCount),
