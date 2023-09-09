@@ -181,7 +181,14 @@ void emuAfr()
 
 void validationAfr()
 {
-  if (emu.emu_data.afrTarget < emu.emu_data.wboAFR)
+  float diffrence = emu.emu_data.afrTarget - emu.emu_data.wboAFR;
+
+  if (diffrence < 0.4)// lean
+  {
+    blockColor = ST77XX_RED;
+  }
+  
+  if (diffrence < 0.2)// lean
   {
     blockColor = ST77XX_ORANGE;
   }
@@ -191,9 +198,9 @@ void validationAfr()
     blockColor = ST77XX_WHITE;
   }
 
-  if (emu.emu_data.afrTarget > emu.emu_data.wboAFR)
+  if (diffrence > 0.2)// rich
   {
-    blockColor = ST77XX_ORANGE;
+    blockColor = ST77XX_GREEN;
   }
 }
 
@@ -211,9 +218,14 @@ void validationBatt()
     blockColor = ST77XX_RED;
   }
 
-  if (emu.emu_data.Batt < 11.0)
+  if (emu.emu_data.Batt < 11.5)
   {
     blockColor = ST77XX_ORANGE;
+  }
+
+  if (emu.emu_data.Batt < 14.2)
+  {
+    blockColor = ST77XX_GREEN;
   }
 }
 
@@ -221,7 +233,7 @@ void validationOilTemp()
 {
   noValidation();
 
-  if (emu.emu_data.oilTemperature > 90)
+  if (emu.emu_data.oilTemperature > 100)
   {
     blockColor = ST77XX_ORANGE;
   }
@@ -242,6 +254,21 @@ void validationOilPresure()
   }
 }
 
+void validationCoolantTemp()
+{
+  noValidation();
+
+  if (emu.emu_data.oilTemperature > 100)
+  {
+    blockColor = ST77XX_ORANGE;
+  }
+
+  if (emu.emu_data.oilTemperature > 130)
+  {
+    blockColor = ST77XX_RED;
+  }
+}
+
 int subOptionCount = 3;
 
 subOption subOptions[] = {
@@ -257,7 +284,7 @@ option options[] = {
     option("OilP", 50, emuOilPresure, validationOilPresure, subOptions, subOptionCount),
     option("OilT", 100, emuOilTemp, validationOilTemp, subOptions, subOptionCount),
     option("IAT", 150, emuIat, noValidation, subOptions, subOptionCount),
-    option("CLT", 200, emuCoolantTemp, noValidation, subOptions, subOptionCount),
+    option("CLT", 200, emuCoolantTemp, validationCoolantTemp, subOptions, subOptionCount),
     option("Batt", 250, emuBatt, validationBatt, subOptions, subOptionCount),
     option("Rpm", 300, emuRpm, noValidation, subOptions, subOptionCount),
     option("KMH", 350, emuVssSpeed, noValidation, subOptions, subOptionCount),
