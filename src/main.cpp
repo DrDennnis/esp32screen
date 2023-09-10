@@ -182,23 +182,20 @@ void emuAfr()
 void validationAfr()
 {
   float diffrence = emu.emu_data.afrTarget - emu.emu_data.wboAFR;
-
-  if (diffrence < 0.4)// lean
-  {
-    blockColor = ST77XX_RED;
-  }
-  
-  if (diffrence < 0.2)// lean
-  {
-    blockColor = ST77XX_ORANGE;
-  }
-
-  if (emu.emu_data.afrTarget == emu.emu_data.wboAFR)
+    
+  if (diffrence > -0.2 && diffrence < 0.2)
   {
     blockColor = ST77XX_WHITE;
   }
-
-  if (diffrence > 0.2)// rich
+  else if (diffrence < -0.6)// lean
+  {
+    blockColor = ST77XX_RED;
+  }
+  else if (diffrence < -0.3)// lean
+  {
+    blockColor = ST77XX_ORANGE;
+  } 
+  else if (diffrence > 0.3)// rich
   {
     blockColor = ST77XX_GREEN;
   }
