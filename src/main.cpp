@@ -187,15 +187,15 @@ void validationAfr()
   {
     blockColor = ST77XX_WHITE;
   }
-  else if (diffrence < -0.6)// lean
+  else if (diffrence < -0.4)// lean
   {
     blockColor = ST77XX_RED;
   }
-  else if (diffrence < -0.3)// lean
+  else if (diffrence < -0.2)// lean
   {
     blockColor = ST77XX_ORANGE;
   } 
-  else if (diffrence > 0.3)// rich
+  else if (diffrence > 0.2)// rich
   {
     blockColor = ST77XX_GREEN;
   }
@@ -215,12 +215,12 @@ void validationBatt()
     blockColor = ST77XX_RED;
   }
 
-  if (emu.emu_data.Batt < 11.5)
+  if (emu.emu_data.Batt > 9.0 && emu.emu_data.Batt < 11.5)
   {
     blockColor = ST77XX_ORANGE;
   }
 
-  if (emu.emu_data.Batt < 14.2)
+  if (emu.emu_data.Batt > 12.8 && emu.emu_data.Batt < 14.2)
   {
     blockColor = ST77XX_GREEN;
   }
